@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Patient } from '../types';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { format } from 'date-fns';
@@ -24,15 +24,6 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [avatarPreview, setAvatarPreview] = useState<string>(userData?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.state?.contributed) {
-      setToastMessage({ text: '感谢你的贡献！已为宫颈癌数据库新增一条记录 🎉', type: 'success' });
-      setTimeout(() => setToastMessage(null), 4000);
-      window.history.replaceState({}, '');
-    }
-  }, []);
 
   useEffect(() => {
     setDisplayName(userData?.displayName || '');
