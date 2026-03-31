@@ -130,8 +130,11 @@ async function startServer() {
     console.log("User connected:", socket.id);
 
     socket.on("user:join", (username: string) => {
+      console.log("User joined:", username, socket.id);
       onlineUsers.set(socket.id, username);
-      io.emit("users:online", Array.from(onlineUsers.values()));
+      const usersList = Array.from(onlineUsers.values());
+      console.log("Broadcasting online users:", usersList);
+      io.emit("users:online", usersList);
     });
 
     socket.on("chat:message", ({ to, message, from }) => {

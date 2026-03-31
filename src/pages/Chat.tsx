@@ -1,23 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Send, ArrowLeft, Loader2, User } from 'lucide-react';
+import { Send, ArrowLeft, User, Circle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const socket = io();
 
+interface AppUser {
+  id: string;
+  email: string;
+}
+
 export default function Chat({ user }: { user: any }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [messages, setMessages] = useState<{from: string, message: string}[]>([]);
   const [targetUser, setTargetUser] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Fetch all users
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data: AppUser[] = [];
+      snapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() } as AppUser);
+      });
+      setAllUsers(data);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user || !user.email) return;
     const username = user.email;
     socket.emit('user:join', username);
     
     socket.on('users:online', (users: string[]) => {
-      setOnlineUsers(users.filter(u => u !== username));
+      setOnlineUsers(users);
     });
     
     socket.on('chat:message', (data: {from: string, message: string}) => {
@@ -54,17 +77,22 @@ export default function Chat({ user }: { user: any }) {
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-4 flex gap-4 overflow-hidden">
         <div className="w-64 bg-white p-4 border rounded-xl shadow-sm">
-          <h3 className="font-bold mb-4 flex items-center gap-2"><User className="w-4 h-4" /> 在线用户</h3>
+          <h3 className="font-bold mb-4 flex items-center gap-2"><User className="w-4 h-4" /> 用户列表</h3>
           <ul className="space-y-2">
-            {onlineUsers.map(u => (
+            {allUsers.map(u => {
+              if (u.email === user.email) return null;
+              const isOnline = onlineUsers.includes(u.email);
+              return (
               <li 
-                key={u} 
-                onClick={() => setTargetUser(u)} 
-                className={`cursor-pointer p-2 rounded-lg ${targetUser === u ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              >
-                {u}
-              </li>
-            ))}
+                  key={u.id} 
+                  onClick={() => setTargetUser(u.email)} 
+                  className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                >
+                  <span className="truncate text-sm">{u.email}</span>
+                  <Circle className={`w-3 h-3 flex-shrink-0 ${isOnline ? 'fill-green-500 text-green-500' : 'fill-gray-300 text-gray-300'}`} />
+                </li>
+              );
+            })}
           </ul>
         </div>
 
