@@ -190,34 +190,45 @@ function playSectionDone() {
   const ctx = new AudioCtx();
   const master = ctx.createGain();
   master.connect(ctx.destination);
-  master.gain.value = 0.9;
+  master.gain.value = 0.65;
 
-  const notes = [
-    { freq: 523.25, start: 0,    dur: 0.13, g: 0.55, type: 'sine'     },  // C5
-    { freq: 659.25, start: 0.11, dur: 0.13, g: 0.55, type: 'sine'     },  // E5
-    { freq: 783.99, start: 0.22, dur: 0.13, g: 0.55, type: 'sine'     },  // G5
-    { freq: 261.63, start: 0.34, dur: 0.80, g: 0.40, type: 'triangle' },  // C4 bass
-    { freq: 523.25, start: 0.34, dur: 0.80, g: 0.50, type: 'sine'     },  // C5
-    { freq: 659.25, start: 0.34, dur: 0.80, g: 0.45, type: 'sine'     },  // E5
-    { freq: 783.99, start: 0.34, dur: 0.80, g: 0.45, type: 'sine'     },  // G5
-    { freq: 1046.5, start: 0.34, dur: 0.80, g: 0.55, type: 'sine'     },  // C6
+  // Marimba-style: triangle fundamental + soft sine overtone, percussive decay
+  const melody = [
+    { freq: 523.25, start: 0.00 },  // C5
+    { freq: 659.25, start: 0.13 },  // E5
+    { freq: 783.99, start: 0.26 },  // G5
+    { freq: 1046.5, start: 0.41 },  // C6
+    { freq: 1318.5, start: 0.57 },  // E6
   ];
 
-  notes.forEach(({ freq, start, dur, g, type }) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(master);
-    osc.type = type as OscillatorType;
-    osc.frequency.value = freq;
+  melody.forEach(({ freq, start }, i) => {
+    const isLast = i === melody.length - 1;
+    const dur = isLast ? 1.0 : 0.38;
+    const g = isLast ? 0.58 : 0.45;
     const t = ctx.currentTime + start;
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(g, t + 0.018);
-    gain.gain.setValueAtTime(g, t + dur * 0.65);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.start(t); osc.stop(t + dur + 0.05);
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1); gain1.connect(master);
+    osc1.type = 'triangle';
+    osc1.frequency.value = freq;
+    gain1.gain.setValueAtTime(0, t);
+    gain1.gain.linearRampToValueAtTime(g, t + 0.006);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc1.start(t); osc1.stop(t + dur + 0.05);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2); gain2.connect(master);
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 2;
+    gain2.gain.setValueAtTime(0, t);
+    gain2.gain.linearRampToValueAtTime(g * 0.18, t + 0.006);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.5);
+    osc2.start(t); osc2.stop(t + dur + 0.05);
   });
 
-  setTimeout(() => ctx.close().catch(() => {}), 2500);
+  setTimeout(() => ctx.close().catch(() => {}), 3000);
 }
 
 function isSectionFilled(fields: any[], values: any) {
