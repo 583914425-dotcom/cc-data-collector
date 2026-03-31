@@ -155,7 +155,7 @@ const SECTION_E_FIELDS = [
 ];
 
 const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload, formValues }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void>, formValues?: any }) => {
-  const editableFields = fields.filter(f => !f.readOnly);
+  const editableFields = fields.filter(f => !f.readOnly && f.label !== '备注');
   const filledCount = editableFields.filter(f => String(formValues?.[f.name] ?? '').trim() !== '').length;
   const isComplete = editableFields.length > 0 && filledCount === editableFields.length;
   const prevCompleteRef = React.useRef(false);
