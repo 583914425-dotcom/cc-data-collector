@@ -4,22 +4,25 @@ import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// WeChat-style send sound: very short soft "pop"
+// Send sound: ascending two-tone (E5 → A5), mirror of receive
 function playMessageSent() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(750, t);
-    osc.frequency.exponentialRampToValueAtTime(520, t + 0.08);
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.28, t + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
-    osc.start(t); osc.stop(t + 0.12);
-    setTimeout(() => ctx.close().catch(() => {}), 500);
+    const playNote = (freq: number, t: number, dur: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.012);
+      gain.gain.setValueAtTime(0.28, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    };
+    playNote(659.25, ctx.currentTime, 0.18);         // E5 first
+    playNote(880, ctx.currentTime + 0.15, 0.22);     // A5 second
+    setTimeout(() => ctx.close().catch(() => {}), 1000);
   } catch (_) {}
 }
 
