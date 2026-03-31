@@ -12,17 +12,24 @@ interface AppUser {
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.3);
+
+    const playBeep = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + duration - 0.02);
+      gain.gain.linearRampToValueAtTime(0, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    playBeep(800, ctx.currentTime, 0.08);
+    playBeep(1000, ctx.currentTime + 0.1, 0.08);
   } catch (_) {}
 }
 
