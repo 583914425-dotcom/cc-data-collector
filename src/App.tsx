@@ -11,25 +11,24 @@ import UserManagement from './pages/UserManagement';
 import Chat from './pages/Chat';
 import { Loader2, LogIn, UserPlus, Chrome } from 'lucide-react';
 
-// WeChat-style receive sound: soft descending two-tone "ding-dong" (A5 → E5)
+// DingTalk-style receive: double "ding-ding"
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const playNote = (freq: number, t: number, dur: number) => {
+    const ding = (t: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
+      osc.type = 'sine';
+      osc.frequency.value = 900;
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.32, t + 0.012);
-      gain.gain.setValueAtTime(0.32, t + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.start(t); osc.stop(t + dur + 0.02);
+      gain.gain.linearRampToValueAtTime(0.38, t + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.start(t); osc.stop(t + 0.24);
     };
-    playNote(880, ctx.currentTime, 0.22);
-    playNote(659.25, ctx.currentTime + 0.18, 0.26);
-    setTimeout(() => ctx.close().catch(() => {}), 1000);
+    ding(ctx.currentTime);
+    ding(ctx.currentTime + 0.16);
+    setTimeout(() => ctx.close().catch(() => {}), 800);
   } catch (_) {}
 }
 
