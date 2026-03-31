@@ -140,13 +140,13 @@ const SECTION_D_FIELDS = [
 
 const SECTION_E_FIELDS = [
   { name: 'treatmentStartDate', label: '治疗开始时间', type: 'date' },
-  { name: 'progressionDate', label: '进展时间', type: 'date' },
-  { name: 'deathDate', label: '死亡时间', type: 'date' },
+  { name: 'progressionDate', label: '进展时间', type: 'date', optional: true },
+  { name: 'deathDate', label: '死亡时间', type: 'date', optional: true },
   { name: 'metastasis', label: '转移', options: ['无', '有'] },
-  { name: 'metastasisSite', label: '转移部位' },
+  { name: 'metastasisSite', label: '转移部位', optional: true },
   { name: 'treatmentResponse', label: '放化疗疗效', options: ['CR', 'PR', 'SD', 'PD'] },
   { name: 'recurrence', label: '复发', options: ['无', '有'] },
-  { name: 'recurrenceSite', label: '复发部位' },
+  { name: 'recurrenceSite', label: '复发部位', optional: true },
   { name: 'pfsMonths', label: '无进展生存期 (月)', readOnly: true },
   { name: 'osMonths', label: '总生存期 (月)', readOnly: true },
   { name: 'survivalStatus', label: '生存状态', options: ['存活', '死亡', '失访'] },
@@ -155,7 +155,7 @@ const SECTION_E_FIELDS = [
 ];
 
 const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload, formValues }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void>, formValues?: any }) => {
-  const editableFields = fields.filter(f => !f.readOnly && f.label !== '备注');
+  const editableFields = fields.filter(f => !f.readOnly && !f.optional && f.label !== '备注');
   const filledCount = editableFields.filter(f => String(formValues?.[f.name] ?? '').trim() !== '').length;
   const isComplete = editableFields.length > 0 && filledCount === editableFields.length;
   const prevCompleteRef = React.useRef(false);
