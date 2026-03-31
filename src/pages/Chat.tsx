@@ -146,7 +146,7 @@ export default function Chat({ user }: { user: any }) {
               <span className="truncate text-sm font-bold">公共频道</span>
             </li>
             {allUsers.map(u => {
-              const isOnline = onlineUsers.includes(u.email) || u.email === user.email;
+              const isOnline = onlineUsers.includes(u.email);
               return (
                 <li 
                   key={u.id} 
@@ -154,7 +154,7 @@ export default function Chat({ user }: { user: any }) {
                   className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
                   <span className="truncate text-sm">{u.email === user.email ? 'Me (在线)' : u.email}</span>
-                  <Circle className={`w-3 h-3 flex-shrink-0 ${isOnline ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
+                  <Circle className={`w-3 h-3 flex-shrink-0 ${isOnline || u.email === user.email ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
                 </li>
               );
             })}
