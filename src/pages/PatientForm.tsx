@@ -1027,6 +1027,8 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
         });
         
         await addDoc(collection(db, 'patients'), payload);
+        navigate('/', { state: { contributed: true } });
+        return;
       }
       navigate('/');
     } catch (error) {
