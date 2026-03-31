@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, ArrowLeft, User, Circle } from 'lucide-react';
+import { Send, ArrowLeft, User, Trash2, Undo2, Eraser } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface AppUser {
@@ -74,7 +74,9 @@ function playNotificationSound() {
 export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: () => void, onLeave?: () => void }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
-  const [messages, setMessages] = useState<{from: string, message: string, to?: string, image?: string, createdAt?: any}[]>([]);
+  const [messages, setMessages] = useState<{id: string, from: string, message?: string, to?: string, image?: string, createdAt?: any, recalled?: boolean}[]>([]);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [localClearedAt, setLocalClearedAt] = useState<Record<string, number>>({});
   const [targetUser, setTargetUser] = useState<string | null>('公共频道');
   const [newMessage, setNewMessage] = useState('');
   const [image, setImage] = useState<string | null>(null);
@@ -113,12 +115,14 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   useEffect(() => {
     const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        from: doc.data().from,
-        message: doc.data().message,
-        to: doc.data().to,
-        image: doc.data().image,
-        createdAt: doc.data().createdAt
+      const data = snapshot.docs.map(d => ({
+        id: d.id,
+        from: d.data().from,
+        message: d.data().message,
+        to: d.data().to,
+        image: d.data().image,
+        createdAt: d.data().createdAt,
+        recalled: d.data().recalled || false,
       }));
 
       const prev = prevMessagesRef.current;
@@ -126,6 +130,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
         const newMsgs = data.slice(prev.length);
         newMsgs.forEach(msg => {
           if (msg.from === user.email) return;
+          if (msg.recalled) return;
 
           const isPublic = msg.to === 'all' || !msg.to;
           const isPrivateToMe = msg.to === user.email;
@@ -189,6 +194,26 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
 
     setNewMessage('');
     setImage(null);
+  };
+
+  const handleRecall = async (msgId: string, createdAt: any) => {
+    const ts = createdAt?.toDate ? createdAt.toDate().getTime() : Number(createdAt);
+    if (Date.now() - ts > 2 * 60 * 1000) {
+      alert('只能撤回2分钟内的消息');
+      return;
+    }
+    await updateDoc(doc(db, 'chat_messages', msgId), { recalled: true, message: '', image: '' });
+  };
+
+  const handleDelete = async (msgId: string) => {
+    if (!confirm('确认删除这条消息？')) return;
+    await deleteDoc(doc(db, 'chat_messages', msgId));
+  };
+
+  const handleClearScreen = () => {
+    if (!targetUser) return;
+    if (!confirm('清屏后本频道的历史消息将在此设备上隐藏，确认吗？')) return;
+    setLocalClearedAt(prev => ({ ...prev, [targetUser]: Date.now() }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,9 +299,18 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
 
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <>
-            <h4 className="font-semibold mb-4 pb-2 border-b">
-              与 {targetUser === '公共频道' ? '公共频道' : (allUsers.find(u => u.email === targetUser)?.displayName || targetUser)} 对话
-            </h4>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b">
+              <h4 className="font-semibold">
+                与 {targetUser === '公共频道' ? '公共频道' : (allUsers.find(u => u.email === targetUser)?.displayName || targetUser)} 对话
+              </h4>
+              <button
+                onClick={handleClearScreen}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
+                title="清屏（仅本设备隐藏）"
+              >
+                <Eraser className="w-3.5 h-3.5" /> 清屏
+              </button>
+            </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 mb-4">
               {messages
                 .filter(m => {
@@ -284,7 +318,13 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   return (m.to === targetUser && m.from === user.email) || 
                          (m.to === user.email && m.from === targetUser);
                 })
-                .map((m, i) => {
+                .filter(m => {
+                  const clearedTs = localClearedAt[targetUser!];
+                  if (!clearedTs || !m.createdAt) return true;
+                  const msgTs = m.createdAt.toDate ? m.createdAt.toDate().getTime() : Number(m.createdAt);
+                  return msgTs > clearedTs;
+                })
+                .map((m) => {
                   const isMine = m.from === user.email;
                   const sender = allUsers.find(u => u.email === m.from);
                   const senderName = isMine ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (sender?.displayName || m.from);
@@ -293,23 +333,60 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                         ? m.createdAt.toDate().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
                         : new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
                     : '';
+                  const canRecall = isMine && !m.recalled && m.createdAt && (() => {
+                    const ts = m.createdAt.toDate ? m.createdAt.toDate().getTime() : Number(m.createdAt);
+                    return Date.now() - ts <= 2 * 60 * 1000;
+                  })();
                   return (
-                    <div key={i} className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div
+                      key={m.id}
+                      className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'} group`}
+                      onMouseEnter={() => setHoveredMsgId(m.id)}
+                      onMouseLeave={() => setHoveredMsgId(null)}
+                    >
                       <Avatar email={m.from} displayName={sender?.displayName} avatarUrl={sender?.avatarUrl} size="sm" />
                       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}>
                         <span className="text-xs text-gray-500 mb-0.5 px-1">{senderName}</span>
-                        <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                          {m.message}
-                          {m.image && (
-                            <img
-                              src={m.image}
-                              alt="chat"
-                              className="max-w-xs mt-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => setEnlargedImage(m.image || null)}
-                            />
+                        {m.recalled ? (
+                          <div className="px-3 py-2 rounded-2xl bg-gray-100 text-gray-400 text-sm italic">
+                            {isMine ? '你' : senderName} 撤回了一条消息
+                          </div>
+                        ) : (
+                          <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                            {m.message}
+                            {m.image && (
+                              <img
+                                src={m.image}
+                                alt="chat"
+                                className="max-w-xs mt-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setEnlargedImage(m.image || null)}
+                              />
+                            )}
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {timeStr && <span className="text-xs text-gray-400">{timeStr}</span>}
+                          {hoveredMsgId === m.id && !m.recalled && isMine && (
+                            <div className={`flex items-center gap-1 ${isMine ? 'mr-1' : 'ml-1'}`}>
+                              {canRecall && (
+                                <button
+                                  onClick={() => handleRecall(m.id, m.createdAt)}
+                                  className="text-xs text-gray-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors"
+                                  title="撤回（2分钟内有效）"
+                                >
+                                  <Undo2 className="w-3 h-3" /> 撤回
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDelete(m.id)}
+                                className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
+                                title="删除"
+                              >
+                                <Trash2 className="w-3 h-3" /> 删除
+                              </button>
+                            </div>
                           )}
                         </div>
-                        {timeStr && <span className="text-xs text-gray-400 mt-0.5 px-1">{timeStr}</span>}
                       </div>
                     </div>
                   );
