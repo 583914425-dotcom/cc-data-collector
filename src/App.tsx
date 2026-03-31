@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { setOnline, setOffline } from './presence';
@@ -34,11 +34,20 @@ export default function App() {
     };
   }, [user?.uid, user?.email]);
 
+  useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      if (err?.code && err.code !== 'auth/cancelled-popup-request') {
+        console.error("Google redirect result error:", err);
+        setError(`Google 登录失败: ${err.message}`);
+      }
+    });
+  }, []);
+
   const handleGoogleLogin = async () => {
     setError('');
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (err: any) {
       console.error("Google login error:", err);
       setError(`Google 登录失败: ${err.message}`);
