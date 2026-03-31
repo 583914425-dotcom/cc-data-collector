@@ -541,6 +541,19 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
 
   const allSectionsComplete = [SECTION_A_FIELDS, SECTION_B_FIELDS, SECTION_C_FIELDS, SECTION_D_FIELDS, SECTION_E_FIELDS]
     .every(f => isSectionFilled(f, allFormValues));
+
+  const missingFields = [
+    { sectionId: 'section-a', fields: SECTION_A_FIELDS },
+    { sectionId: 'section-b', fields: SECTION_B_FIELDS },
+    { sectionId: 'section-c', fields: SECTION_C_FIELDS },
+    { sectionId: 'section-d', fields: SECTION_D_FIELDS },
+    { sectionId: 'section-e', fields: SECTION_E_FIELDS },
+  ].flatMap(({ sectionId, fields }) =>
+    fields
+      .filter(f => !f.readOnly && !f.optional && f.label !== '备注')
+      .filter(f => String(allFormValues?.[f.name] ?? '').trim() === '')
+      .map(f => ({ label: f.label, sectionId }))
+  );
   const prevAllCompleteRef = React.useRef(false);
   useEffect(() => {
     if (allSectionsComplete && !prevAllCompleteRef.current) {
@@ -1196,6 +1209,35 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
                 ))}
               </nav>
             </div>
+
+            {missingFields.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4">
+                <h3 className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#fff7ed" stroke="#ea580c" strokeWidth="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  缺失项 ({missingFields.length})
+                </h3>
+                <div className="space-y-1">
+                  {missingFields.map((f, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => document.getElementById(f.sectionId)?.scrollIntoView({ behavior: 'smooth' })}
+                      className="w-full text-left px-2 py-1.5 rounded-md text-xs text-orange-700 hover:bg-orange-50 transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="w-1 h-1 rounded-full bg-orange-400 flex-shrink-0" />
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {missingFields.length === 0 && (
+              <div className="bg-green-50 rounded-xl border border-green-200 p-4 text-center">
+                <svg className="w-6 h-6 mx-auto mb-1 text-green-500" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <p className="text-xs text-green-700 font-medium">所有必填项已完成</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
