@@ -4,52 +4,23 @@ import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// WeChat-style send sound: very short soft "pop"
 function playMessageSent() {
-  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioCtx) return;
-  const ctx = new AudioCtx();
-  const master = ctx.createGain();
-  master.connect(ctx.destination);
-  master.gain.value = 0.5;
-
-  // Whoosh: noise burst with falling pitch filter, plus a soft high "pip"
-  const bufferSize = ctx.sampleRate * 0.18;
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-  const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
-
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.setValueAtTime(3200, ctx.currentTime);
-  filter.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.18);
-  filter.Q.value = 0.8;
-
-  const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.9, ctx.currentTime);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-
-  noise.connect(filter);
-  filter.connect(noiseGain);
-  noiseGain.connect(master);
-  noise.start(ctx.currentTime);
-  noise.stop(ctx.currentTime + 0.2);
-
-  // Soft "pip" at end
-  const pip = ctx.createOscillator();
-  const pipGain = ctx.createGain();
-  pip.connect(pipGain); pipGain.connect(master);
-  pip.type = 'sine';
-  pip.frequency.value = 1200;
-  pipGain.gain.setValueAtTime(0, ctx.currentTime + 0.12);
-  pipGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.15);
-  pipGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
-  pip.start(ctx.currentTime + 0.12);
-  pip.stop(ctx.currentTime + 0.3);
-
-  setTimeout(() => ctx.close().catch(() => {}), 1000);
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(750, t);
+    osc.frequency.exponentialRampToValueAtTime(520, t + 0.08);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.28, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
+    osc.start(t); osc.stop(t + 0.12);
+    setTimeout(() => ctx.close().catch(() => {}), 500);
+  } catch (_) {}
 }
 
 interface AppUser {
@@ -94,28 +65,25 @@ function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email: string,
   );
 }
 
+// WeChat-style receive sound: soft descending two-tone "ding-dong" (A5 → E5)
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    const playTone = (freq: number, startTime: number) => {
+    const playNote = (freq: number, t: number, dur: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.38, startTime + 0.01);
-      gain.gain.setValueAtTime(0.38, startTime + 0.07);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.13);
-      osc.start(startTime);
-      osc.stop(startTime + 0.14);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.32, t + 0.012);
+      gain.gain.setValueAtTime(0.32, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t); osc.stop(t + dur + 0.02);
     };
-
-    playTone(880, ctx.currentTime);
-    playTone(1108, ctx.currentTime + 0.15);
-    playTone(1397, ctx.currentTime + 0.30);
+    playNote(880, ctx.currentTime, 0.22);        // A5
+    playNote(659.25, ctx.currentTime + 0.18, 0.26); // E5
+    setTimeout(() => ctx.close().catch(() => {}), 1000);
   } catch (_) {}
 }
 
