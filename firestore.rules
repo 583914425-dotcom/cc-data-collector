@@ -218,5 +218,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /presence/{userId} {
+      allow read: if isApprovedUser();
+      allow write: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
   }
 }

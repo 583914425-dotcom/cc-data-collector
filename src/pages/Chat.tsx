@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, ArrowLeft, User, Circle } from 'lucide-react';
-import { socket } from '../socket';
 import { Link } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface AppUser {
@@ -60,16 +59,11 @@ export default function Chat({ user }: { user: any }) {
   }, []);
 
   useEffect(() => {
-    const handleOnlineUsers = (users: string[]) => {
-      console.log('Received online users:', users);
-      setOnlineUsers(users);
-    };
-
-    socket.on('users:online', handleOnlineUsers);
-
-    return () => {
-      socket.off('users:online', handleOnlineUsers);
-    };
+    const unsubscribe = onSnapshot(collection(db, 'presence'), (snapshot) => {
+      const emails = snapshot.docs.map(doc => doc.data().email as string);
+      setOnlineUsers(emails);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
