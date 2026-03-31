@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { Send, ArrowLeft, User, Circle } from 'lucide-react';
+import { socket } from '../socket';
 import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-
-const socket = io();
 
 interface AppUser {
   id: string;
@@ -62,28 +60,17 @@ export default function Chat({ user }: { user: any }) {
   }, []);
 
   useEffect(() => {
-    if (!user || !user.email) return;
-    
-    const joinUser = () => {
-      socket.emit('user:join', user.email);
-    };
-
-    if (socket.connected) {
-      joinUser();
-    }
-
-    socket.on('connect', joinUser);
-    
-    socket.on('users:online', (users: string[]) => {
+    const handleOnlineUsers = (users: string[]) => {
       console.log('Received online users:', users);
       setOnlineUsers(users);
-    });
-    
-    return () => {
-      socket.off('connect', joinUser);
-      socket.off('users:online');
     };
-  }, [user.email]);
+
+    socket.on('users:online', handleOnlineUsers);
+
+    return () => {
+      socket.off('users:online', handleOnlineUsers);
+    };
+  }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

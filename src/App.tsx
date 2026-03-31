@@ -4,6 +4,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { socket } from './socket';
 import Dashboard from './pages/Dashboard';
 import PatientForm from './pages/PatientForm';
 import UserManagement from './pages/UserManagement';
@@ -18,6 +19,18 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const joinUser = () => socket.emit('user:join', user.email);
+    if (socket.connected) {
+      joinUser();
+    }
+    socket.on('connect', joinUser);
+    return () => {
+      socket.off('connect', joinUser);
+    };
+  }, [user?.email]);
 
   const handleGoogleLogin = async () => {
     setError('');
