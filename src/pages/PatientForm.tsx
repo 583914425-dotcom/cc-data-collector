@@ -157,7 +157,7 @@ const SECTION_E_FIELDS = [
 const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void> }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6" id={id}>
-      <div className="bg-blue-50/70 px-6 py-3 border-bottom border-blue-100 flex items-center justify-between">
+      <div className="bg-gray-50 px-6 py-3 border-bottom border-gray-100 flex items-center justify-between">
         <div className='flex items-center gap-4'>
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h3>
         </div>
@@ -977,12 +977,12 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
 
 
   return (
-    <div className="min-h-screen bg-[#f4f7ff] p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
-            className="p-2 hover:bg-blue-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
             title="返回主界面"
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />

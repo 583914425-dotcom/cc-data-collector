@@ -154,15 +154,15 @@ export default function App() {
 
   if (loading || userDataLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f7ff]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f7ff] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">医学预测模型数据采集系统</h1>
@@ -235,7 +235,7 @@ export default function App() {
 
   if (userData?.role === 'pending') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f7ff] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">账号审核中</h1>
           <p className="text-gray-600 mb-8">您的账号已创建，但需要管理员审核后才能进入系统。请联系管理员进行授权。</p>
