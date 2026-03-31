@@ -154,6 +154,36 @@ const SECTION_E_FIELDS = [
   { name: 'remarkE', label: '备注', type: 'textarea' },
 ];
 
+function playOneSectionDone() {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
+  master.gain.value = 0.75;
+
+  const notes = [
+    { freq: 659.25, start: 0,    dur: 0.14, g: 0.5, type: 'sine' },  // E5
+    { freq: 783.99, start: 0.13, dur: 0.14, g: 0.5, type: 'sine' },  // G5
+    { freq: 1046.5, start: 0.26, dur: 0.30, g: 0.6, type: 'sine' },  // C6
+  ];
+
+  notes.forEach(({ freq, start, dur, g, type }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(master);
+    osc.type = type as OscillatorType;
+    osc.frequency.value = freq;
+    const t = ctx.currentTime + start;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(g, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  });
+
+  setTimeout(() => ctx.close().catch(() => {}), 1500);
+}
+
 function playSectionDone() {
   const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioCtx) return;
@@ -204,6 +234,7 @@ const FormSection = ({ title, children, id, fields, clearSection, toggleSectionR
   React.useEffect(() => {
     if (isComplete && !prevCompleteRef.current) {
       setJustCompleted(true);
+      playOneSectionDone();
       const t = setTimeout(() => setJustCompleted(false), 1800);
       return () => clearTimeout(t);
     }
