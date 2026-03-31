@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, ArrowLeft, User, Circle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -9,6 +9,23 @@ interface AppUser {
   email: string;
 }
 
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.3);
+  } catch (_) {}
+}
+
 export default function Chat({ user }: { user: any }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
@@ -17,33 +34,34 @@ export default function Chat({ user }: { user: any }) {
   const [newMessage, setNewMessage] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevMessagesRef = useRef<typeof messages>([]);
+  const targetUserRef = useRef(targetUser);
 
   useEffect(() => {
-    // Fetch all users
+    targetUserRef.current = targetUser;
+  }, [targetUser]);
+
+  useEffect(() => {
     const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('User snapshot received, count:', snapshot.docs.length);
       const data: AppUser[] = [];
       snapshot.forEach((doc) => {
         const userData = doc.data();
-        console.log('User found:', userData.email);
         data.push({ id: doc.id, email: userData.email } as AppUser);
       });
       setAllUsers(data);
     }, (error) => {
       console.error('Error fetching users:', error);
     });
-
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    // Listen for messages
     const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Received snapshot, doc count:', snapshot.docs.length);
       const data = snapshot.docs.map(doc => ({
         from: doc.data().from,
         message: doc.data().message,
@@ -51,12 +69,36 @@ export default function Chat({ user }: { user: any }) {
         image: doc.data().image,
         createdAt: doc.data().createdAt
       }));
-      console.log('Processed messages:', data);
+
+      const prev = prevMessagesRef.current;
+      if (prev.length > 0 && data.length > prev.length) {
+        const newMsgs = data.slice(prev.length);
+        newMsgs.forEach(msg => {
+          if (msg.from === user.email) return;
+
+          const isPublic = msg.to === 'all' || !msg.to;
+          const isPrivateToMe = msg.to === user.email;
+          if (!isPublic && !isPrivateToMe) return;
+
+          const conversationKey = isPublic ? '公共频道' : msg.from;
+          const currentTarget = targetUserRef.current;
+
+          if (currentTarget !== conversationKey) {
+            playNotificationSound();
+            setUnreadCounts(prev => ({
+              ...prev,
+              [conversationKey]: (prev[conversationKey] || 0) + 1
+            }));
+          }
+        });
+      }
+
+      prevMessagesRef.current = data;
       setMessages(data);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user.email]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'presence'), (snapshot) => {
@@ -64,6 +106,17 @@ export default function Chat({ user }: { user: any }) {
       setOnlineUsers(emails);
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, targetUser]);
+
+  const handleSelectConversation = useCallback((key: string) => {
+    setTargetUser(key);
+    setUnreadCounts(prev => ({ ...prev, [key]: 0 }));
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -76,19 +129,11 @@ export default function Chat({ user }: { user: any }) {
       createdAt: serverTimestamp()
     };
     
-    if (newMessage.trim()) {
-      payload.message = newMessage.trim();
-    }
-    if (image) {
-      payload.image = image;
-    }
-    
-    console.log('Sending message:', payload);
+    if (newMessage.trim()) payload.message = newMessage.trim();
+    if (image) payload.image = image;
     
     try {
-      // Save to Firestore
       await addDoc(collection(db, 'chat_messages'), payload);
-      console.log('Message saved to Firestore successfully');
     } catch (error) {
       console.error('Error saving message to Firestore:', error);
     }
@@ -101,12 +146,22 @@ export default function Chat({ user }: { user: any }) {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
+      reader.onloadend = () => setImage(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
+
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+
+  useEffect(() => {
+    const original = document.title;
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) 新消息 — 在线聊天`;
+    } else {
+      document.title = '在线聊天';
+    }
+    return () => { document.title = original; };
+  }, [totalUnread]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -116,7 +171,14 @@ export default function Chat({ user }: { user: any }) {
             <Link to="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <ArrowLeft className="w-5 h-5 text-gray-500" />
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">在线聊天</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              在线聊天
+              {totalUnread > 0 && (
+                <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                  {totalUnread}
+                </span>
+              )}
+            </h1>
           </div>
         </div>
       </header>
@@ -126,21 +188,34 @@ export default function Chat({ user }: { user: any }) {
           <h3 className="font-bold mb-4 flex items-center gap-2"><User className="w-4 h-4" /> 用户列表</h3>
           <ul className="space-y-2">
             <li 
-              onClick={() => setTargetUser('公共频道')} 
+              onClick={() => handleSelectConversation('公共频道')} 
               className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === '公共频道' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
             >
               <span className="truncate text-sm font-bold">公共频道</span>
+              {(unreadCounts['公共频道'] || 0) > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                  {unreadCounts['公共频道']}
+                </span>
+              )}
             </li>
             {allUsers.map(u => {
               const isOnline = onlineUsers.includes(u.email);
+              const unread = unreadCounts[u.email] || 0;
               return (
                 <li 
                   key={u.id} 
-                  onClick={() => setTargetUser(u.email)} 
+                  onClick={() => handleSelectConversation(u.email)} 
                   className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
                   <span className="truncate text-sm">{u.email === user.email ? 'Me (在线)' : u.email}</span>
-                  <Circle className={`w-3 h-3 flex-shrink-0 ${isOnline || u.email === user.email ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {unread > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                        {unread}
+                      </span>
+                    )}
+                    <Circle className={`w-3 h-3 ${isOnline || u.email === user.email ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
+                  </div>
                 </li>
               );
             })}
@@ -195,7 +270,6 @@ export default function Chat({ user }: { user: any }) {
         </div>
       </main>
 
-      {/* Enlarged Image Modal */}
       {enlargedImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setEnlargedImage(null)}>
           <img src={enlargedImage} alt="enlarged" className="max-w-full max-h-full object-contain rounded-lg" />
