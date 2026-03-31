@@ -11,24 +11,32 @@ import UserManagement from './pages/UserManagement';
 import Chat from './pages/Chat';
 import { Loader2, LogIn, UserPlus, Chrome } from 'lucide-react';
 
-// DingTalk-style receive: double "ding-ding"
+// Apple tri-tone: C6 → E6 → G6
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ding = (t: number) => {
+    const note = (freq: number, t: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = 900;
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      osc2.type = 'sine'; osc2.frequency.value = freq * 2.756;
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.38, t + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc.start(t); osc.stop(t + 0.24);
+      gain.gain.linearRampToValueAtTime(0.38, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      gain2.gain.setValueAtTime(0, t);
+      gain2.gain.linearRampToValueAtTime(0.09, t + 0.005);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t); osc.stop(t + 0.30);
+      osc2.start(t); osc2.stop(t + 0.15);
     };
-    ding(ctx.currentTime);
-    ding(ctx.currentTime + 0.16);
-    setTimeout(() => ctx.close().catch(() => {}), 800);
+    note(1046.5,  ctx.currentTime);
+    note(1318.5,  ctx.currentTime + 0.11);
+    note(1567.98, ctx.currentTime + 0.22);
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
   } catch (_) {}
 }
 

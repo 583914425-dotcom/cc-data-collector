@@ -4,23 +4,34 @@ import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// DingTalk-style send: single crisp "ding"
+// Apple tri-tone style note
+function playTriTone(ctx: AudioContext, freq: number, t: number, vol: number) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  // Add subtle overtone for bell-like quality
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc2.connect(gain2); gain2.connect(ctx.destination);
+  osc.type = 'sine'; osc.frequency.value = freq;
+  osc2.type = 'sine'; osc2.frequency.value = freq * 2.756; // inharmonic overtone
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+  gain2.gain.setValueAtTime(0, t);
+  gain2.gain.linearRampToValueAtTime(vol * 0.25, t + 0.005);
+  gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  osc.start(t); osc.stop(t + 0.30);
+  osc2.start(t); osc2.stop(t + 0.15);
+}
+
+// Apple tri-tone send: two ascending notes (lighter)
 function playMessageSent() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ding = (t: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = 900;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.35, t + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc.start(t); osc.stop(t + 0.24);
-    };
-    ding(ctx.currentTime);
-    setTimeout(() => ctx.close().catch(() => {}), 800);
+    playTriTone(ctx, 1046.5, ctx.currentTime, 0.30);       // C6
+    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.30); // E6
+    setTimeout(() => ctx.close().catch(() => {}), 1000);
   } catch (_) {}
 }
 
@@ -66,24 +77,14 @@ function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email: string,
   );
 }
 
-// DingTalk-style receive: double "ding-ding" (same pitch, 160ms apart)
+// Apple tri-tone receive: three ascending notes C6 → E6 → G6
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ding = (t: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = 900;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.38, t + 0.006);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc.start(t); osc.stop(t + 0.24);
-    };
-    ding(ctx.currentTime);
-    ding(ctx.currentTime + 0.16);
-    setTimeout(() => ctx.close().catch(() => {}), 800);
+    playTriTone(ctx, 1046.5, ctx.currentTime, 0.38);        // C6
+    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.38); // E6
+    playTriTone(ctx, 1567.98, ctx.currentTime + 0.22, 0.38); // G6
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
   } catch (_) {}
 }
 
