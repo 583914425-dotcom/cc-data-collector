@@ -5,11 +5,9 @@ import { Server } from "socket.io";
 import { GoogleGenAI, Type } from "@google/genai";
 import OpenAI from "openai";
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 
 function extractJSON(text: string): string {
@@ -553,7 +551,8 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, 'public');
+    const distPath = path.resolve('dist/public');
+    console.log('Serving static files from:', distPath);
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

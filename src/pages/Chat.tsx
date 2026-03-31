@@ -25,13 +25,18 @@ export default function Chat({ user }: { user: any }) {
 
   useEffect(() => {
     // Fetch all users
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log('User snapshot received, count:', snapshot.docs.length);
       const data: AppUser[] = [];
       snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() } as AppUser);
+        const userData = doc.data();
+        console.log('User found:', userData.email);
+        data.push({ id: doc.id, email: userData.email } as AppUser);
       });
       setAllUsers(data);
+    }, (error) => {
+      console.error('Error fetching users:', error);
     });
 
     return () => unsubscribe();

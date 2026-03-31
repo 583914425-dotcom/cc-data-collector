@@ -35,10 +35,13 @@ export default function App() {
       if (user) {
         setUserDataLoading(true);
         try {
+          console.log('Fetching user data for UID:', user.uid);
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
+            console.log('User data found:', userDoc.data());
             setUserData(userDoc.data());
           } else {
+            console.log('User data not found, creating new profile...');
             // Create user profile if it doesn't exist
             const newUser = {
               email: user.email,
@@ -46,6 +49,7 @@ export default function App() {
               createdAt: Date.now()
             };
             await setDoc(doc(db, 'users', user.uid), newUser);
+            console.log('User profile created successfully');
             setUserData(newUser);
           }
         } catch (err) {
