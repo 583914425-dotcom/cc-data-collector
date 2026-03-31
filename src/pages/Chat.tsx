@@ -10,6 +10,34 @@ interface AppUser {
   displayName?: string;
 }
 
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-yellow-500',
+  'bg-red-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500',
+  'bg-orange-500', 'bg-cyan-500',
+];
+
+function getAvatarColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitial(displayName: string, email: string): string {
+  const name = displayName || email;
+  return name.charAt(0).toUpperCase();
+}
+
+function Avatar({ email, displayName, size = 'md' }: { email: string, displayName?: string, size?: 'sm' | 'md' }) {
+  const color = getAvatarColor(email);
+  const initial = getInitial(displayName || '', email);
+  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-sm';
+  return (
+    <div className={`${color} ${sizeClass} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0`}>
+      {initial}
+    </div>
+  );
+}
+
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -218,17 +246,18 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                 <li 
                   key={u.id} 
                   onClick={() => handleSelectConversation(u.email)} 
-                  className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                  className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
-                  <span className="truncate text-sm">{u.email === user.email ? `${u.displayName || u.email} (我)` : (u.displayName || u.email)}</span>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {unread > 0 && (
-                      <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-                        {unread}
-                      </span>
-                    )}
-                    <Circle className={`w-3 h-3 ${isOnline || u.email === user.email ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
+                  <div className="relative flex-shrink-0">
+                    <Avatar email={u.email} displayName={u.displayName} size="sm" />
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${isOnline || u.email === user.email ? 'bg-green-500' : 'bg-gray-300'}`} />
                   </div>
+                  <span className="truncate text-sm flex-1">{u.email === user.email ? `${u.displayName || u.email} (我)` : (u.displayName || u.email)}</span>
+                  {unread > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 flex-shrink-0">
+                      {unread}
+                    </span>
+                  )}
                 </li>
               );
             })}
@@ -247,29 +276,36 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   return (m.to === targetUser && m.from === user.email) || 
                          (m.to === user.email && m.from === targetUser);
                 })
-                .map((m, i) => (
-                <div key={i} className={`flex flex-col ${m.from === user.email ? 'items-end' : 'items-start'}`}>
-                  <span className="text-xs text-gray-500 mb-0.5">{m.from === user.email ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (allUsers.find(u => u.email === m.from)?.displayName || m.from)}</span>
-                  <div className={`p-3 rounded-2xl ${m.from === user.email ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
-                    {m.message}
-                    {m.image && (
-                      <img 
-                        src={m.image} 
-                        alt="chat" 
-                        className="max-w-xs mt-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" 
-                        onClick={() => setEnlargedImage(m.image || null)}
-                      />
-                    )}
-                  </div>
-                  {m.createdAt && (
-                    <span className="text-xs text-gray-400 mt-0.5">
-                      {m.createdAt.toDate
+                .map((m, i) => {
+                  const isMine = m.from === user.email;
+                  const sender = allUsers.find(u => u.email === m.from);
+                  const senderName = isMine ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (sender?.displayName || m.from);
+                  const timeStr = m.createdAt
+                    ? (m.createdAt.toDate
                         ? m.createdAt.toDate().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-                        : new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                </div>
-              ))}
+                        : new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
+                    : '';
+                  return (
+                    <div key={i} className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <Avatar email={m.from} displayName={sender?.displayName} size="sm" />
+                      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                        <span className="text-xs text-gray-500 mb-0.5 px-1">{senderName}</span>
+                        <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                          {m.message}
+                          {m.image && (
+                            <img
+                              src={m.image}
+                              alt="chat"
+                              className="max-w-xs mt-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => setEnlargedImage(m.image || null)}
+                            />
+                          )}
+                        </div>
+                        {timeStr && <span className="text-xs text-gray-400 mt-0.5 px-1">{timeStr}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               <div ref={bottomRef} />
             </div>
             {image && (
