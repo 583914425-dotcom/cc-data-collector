@@ -1,0 +1,5 @@
+{
+  "name": "CC Data",
+  "description": "Medical data extraction and management system",
+  "requestFramePermissions": ["microphone"]
+}

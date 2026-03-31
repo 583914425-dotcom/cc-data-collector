@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "A patient record for the prediction model database.",
+      "type": "object",
+      "properties": {
+        "customPatientId": { "type": "string", "description": "患者ID (自定义)" },
+        "name": { "type": "string", "description": "姓名" },
+        "age": { "type": "number", "description": "年龄" },
+        "ageGroup": { "type": "string", "description": "年龄分组" },
+        "gender": { "type": "string", "description": "性别" },
+        "height": { "type": "number", "description": "身高" },
+        "weight": { "type": "number", "description": "体重" },
+        "bmi": { "type": "number", "description": "体重指数BMI" },
+        "bmiGroup": { "type": "string", "description": "BMI分组" },
+        "menstrualStatus": { "type": "string", "description": "月经状态" },
+        "abortionHistory": { "type": "string", "description": "流产史" },
+        "hpvInfection": { "type": "string", "description": "人乳头瘤病毒HPV感染" },
+        "systolicBP": { "type": "number", "description": "收缩压(mmHg)" },
+        "diastolicBP": { "type": "number", "description": "舒张压(mmHg)" },
+        "hypertensionGrade": { "type": "string", "description": "高血压分级" },
+        
+        "figo2018": { "type": "string", "description": "FIGO2018分期" },
+        "figoSummary": { "type": "string", "description": "FIGO分期汇总" },
+        "histology": { "type": "string", "description": "组织学类型" },
+        "tumorMaxDiameter": { "type": "number", "description": "肿瘤最大径" },
+        "tumorMaxDiameterGroup": { "type": "string", "description": "肿瘤最大径分组" },
+        
+        "parametrialInvasion": { "type": "string", "description": "宫旁浸润" },
+        "uterineBodyInvasion": { "type": "string", "description": "宫体浸润" },
+        "vaginalInvasion": { "type": "string", "description": "阴道受侵范围" },
+        "bladderInvasion": { "type": "string", "description": "膀胱受侵" },
+        "rectalInvasion": { "type": "string", "description": "直肠受侵" },
+        "pelvicLymphNodeMetastasis": { "type": "string", "description": "盆腔淋巴结转移" },
+        "remarkA": { "type": "string", "description": "备注A" },
+        "remarkB": { "type": "string", "description": "备注B" },
+        "remarkC": { "type": "string", "description": "备注C" },
+        "remarkD": { "type": "string", "description": "备注D" },
+        "remarkE": { "type": "string", "description": "备注F" },
+        
+        "rbcCount": { "type": "number", "description": "红细胞计数" },
+        "wbcCount": { "type": "number", "description": "白细胞计数" },
+        "plateletCount": { "type": "number", "description": "血小板计数" },
+        "lymphocyteCount": { "type": "number", "description": "淋巴细胞计数" },
+        "neutrophilCount": { "type": "number", "description": "中性粒细胞计数" },
+        "monocyteCount": { "type": "number", "description": "单核细胞计数" },
+        "preTreatmentHb": { "type": "number", "description": "治疗前血红蛋白" },
+        "hbGroup": { "type": "string", "description": "血红蛋白分组" },
+        "scca": { "type": "number", "description": "鳞癌抗原SCCA" },
+        "sccaGroup": { "type": "string", "description": "SCCA分组" },
+        "nlr": { "type": "number", "description": "中性粒细胞/淋巴细胞比值NLR" },
+        "plr": { "type": "number", "description": "血小板/淋巴细胞比值PLR" },
+        "lmr": { "type": "number", "description": "淋巴细胞/单核细胞比值LMR" },
+        
+        "radiotherapyTech": { "type": "string", "description": "放疗技术" },
+        "ebrtDose": { "type": "number", "description": "外照射总剂量EBRT" },
+        "ebrtDoseGroup": { "type": "string", "description": "外照射总剂量分组" },
+        "icbtDose": { "type": "number", "description": "内照射总剂量ICBT" },
+        "eqd2": { "type": "number", "description": "等效生物剂量EQD2" },
+        "eqd4": { "type": "number", "description": "等效生物剂量EQD4" },
+        "concurrentChemoCycles": { "type": "number", "description": "同步放化疗疗程" },
+        "platinumChemo": { "type": "string", "description": "含铂化疗方案" },
+        "platinumDrug": { "type": "string", "description": "含铂药物" },
+        "concurrentCisplatinWeekly": { "type": "string", "description": "同步顺铂周疗" },
+        "concurrentChemoTimes": { "type": "number", "description": "同步化疗次数" },
+        "totalChemoDose": { "type": "number", "description": "化疗总剂量" },
+        
+        "treatmentStartDate": { "type": "string", "description": "治疗开始时间", "format": "date" },
+        "progressionDate": { "type": "string", "description": "进展时间", "format": "date" },
+        "deathDate": { "type": "string", "description": "死亡时间", "format": "date" },
+        "metastasis": { "type": "string", "description": "转移" },
+        "metastasisSite": { "type": "string", "description": "转移部位" },
+        "radiochemotherapyEfficacy": { "type": "string", "description": "放化疗疗效" },
+        "recurrence": { "type": "string", "description": "复发" },
+        "pfs": { "type": "number", "description": "无进展生存期" },
+        "os": { "type": "number", "description": "总生存期" },
+        "survivalStatus": { "type": "string", "description": "生存状态" },
+        "followUpDate": { "type": "string", "description": "随访时间", "format": "date" },
+        "remarkE": { "type": "string", "description": "备注E" },
+        "createdAt": { "type": "number", "description": "创建时间戳" },
+        "updatedAt": { "type": "number", "description": "更新时间戳" }
+      },
+      "required": ["name", "authorUid", "createdAt", "updatedAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in the team chat.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderEmail", "senderUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/patients/{patientId}": {
+      "schema": { "$ref": "#/entities/Patient" },
+      "description": "Stores patient records."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "/chat_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Stores team chat messages."
+    }
+  }
+}
