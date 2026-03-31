@@ -36,7 +36,10 @@ export const Chat = ({ username }: { username: string }) => {
       <h3 className="font-bold mb-2">Online Users</h3>
       <ul className="mb-4">
         {onlineUsers.map(u => (
-          <li key={u} onClick={() => setTargetUser(u)} className="cursor-pointer text-blue-600 hover:underline">{u}</li>
+          <li key={u} onClick={() => setTargetUser(u)} className="cursor-pointer flex items-center gap-2 py-1 hover:bg-gray-50 rounded px-1">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block flex-shrink-0"></span>
+            <span className="text-blue-600 hover:underline">{u}</span>
+          </li>
         ))}
       </ul>
       {targetUser && (
