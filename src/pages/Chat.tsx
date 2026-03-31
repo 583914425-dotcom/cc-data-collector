@@ -82,7 +82,11 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   const [image, setImage] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiTab, setEmojiTab] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessagesRef = useRef<typeof messages>([]);
@@ -96,6 +100,38 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   useEffect(() => {
     targetUserRef.current = targetUser;
   }, [targetUser]);
+
+  const EMOJIS = [
+    { label: '常用', list: ['😊','😂','🤣','❤️','😍','🥰','😘','😁','😄','😃','😀','🙂','😉','😋','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','💀','☠️','👻','👽','🤖','💩','😺','😸','😹','😻','😼','😽','🙀','😿','😾'] },
+    { label: '手势', list: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦵','🦶','👂','🦻','👃','👀','👁️','👅','👄','💋','🫀','🫁','🧠','🦷','🦴'] },
+    { label: '动物', list: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦏','🦛','🐪','🦒','🦘','🦬','🐃','🐂','🦙','🐑','🐏','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🐓','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'] },
+    { label: '食物', list: ['🍎','🍊','🍋','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑','🍆','🥦','🥬','🥒','🫑','🌽','🥕','🫛','🧅','🥔','🍠','🫚','🧄','🧅','🥜','🫘','🌰','🍞','🥐','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥙','🥪','🌮','🌯','🫔','🥗','🥘','🫕','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍘','🍥','🥮','🍢','🧆','🥙','🧆','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🫘','🍯','🧃','🥤','🧋','☕','🍵','🫖','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾'] },
+    { label: '符号', list: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☯️','🕉️','✡️','🔯','🛐','⛎','♈','💯','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🔣','🔤','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🔕','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🆚','💬','💭','🗯️','💤','🔈','🔉','🔊','📢','📣','🔔','🔕','🎵','🎶','💹','🗺️','🌐','🗾','🧭','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏞️','🏟️','🏛️','🏗️','🏘️','🏚️','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♾️','🌌','🌠','🎇','🎆','🌈','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','🌪️','🌫️','🌊','🌀','🌈','🌂','☂️','☔','⛱️','⚡','❄️','🔥','💧','🌊'] },
+  ];
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    if (showEmojiPicker) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
+
+  const insertEmoji = (emoji: string) => {
+    const input = inputRef.current;
+    if (!input) { setNewMessage(prev => prev + emoji); return; }
+    const start = input.selectionStart ?? newMessage.length;
+    const end = input.selectionEnd ?? newMessage.length;
+    const next = newMessage.slice(0, start) + emoji + newMessage.slice(end);
+    setNewMessage(next);
+    setTimeout(() => {
+      input.focus();
+      const pos = start + emoji.length;
+      input.setSelectionRange(pos, pos);
+    }, 0);
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'users'));
@@ -399,17 +435,58 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                 <button onClick={() => setImage(null)} className="text-xs text-red-500">取消</button>
               </div>
             )}
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-blue-600">图片</button>
-              <input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="输入消息..."
-                className="flex-1 p-3 border rounded-xl"
-              />
-              <button type="submit" className="bg-blue-600 text-white p-3 rounded-xl"><Send className="w-5 h-5" /></button>
-            </form>
+            <div className="relative">
+              {showEmojiPicker && (
+                <div
+                  ref={emojiPickerRef}
+                  className="absolute bottom-12 left-0 z-50 bg-white border border-gray-200 rounded-2xl shadow-xl w-80"
+                >
+                  <div className="flex border-b overflow-x-auto">
+                    {EMOJIS.map((cat, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setEmojiTab(i)}
+                        className={`px-3 py-2 text-xs whitespace-nowrap flex-shrink-0 font-medium transition-colors ${emojiTab === i ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-8 gap-0.5 p-2 h-48 overflow-y-auto">
+                    {EMOJIS[emojiTab].list.map((emoji, i) => (
+                      <button
+                        key={i}
+                        onClick={() => insertEmoji(emoji)}
+                        className="text-xl hover:bg-gray-100 rounded-lg p-1 transition-colors leading-none"
+                        title={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-blue-600">图片</button>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  className={`p-2 text-xl leading-none transition-colors ${showEmojiPicker ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                  title="表情"
+                >
+                  😊
+                </button>
+                <input
+                  ref={inputRef}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="输入消息..."
+                  className="flex-1 p-3 border rounded-xl"
+                />
+                <button type="submit" className="bg-blue-600 text-white p-3 rounded-xl"><Send className="w-5 h-5" /></button>
+              </form>
+            </div>
           </>
         </div>
       </main>
