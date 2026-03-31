@@ -22,6 +22,10 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [nicknameInput, setNicknameInput] = useState('');
   const [displayName, setDisplayName] = useState(userData?.displayName || '');
 
+  useEffect(() => {
+    setDisplayName(userData?.displayName || '');
+  }, [userData?.displayName]);
+
   const showToast = (text: string, type: 'success' | 'error') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3000);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { setOnline, setOffline } from './presence';
 import Dashboard from './pages/Dashboard';
@@ -105,32 +105,30 @@ export default function App() {
   };
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (user) {
-        setUserDataLoading(true);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data());
-          } else {
-            const newUser = {
-              email: user.email,
-              role: 'pending',
-              createdAt: Date.now()
-            };
-            await setDoc(doc(db, 'users', user.uid), newUser);
-            setUserData(newUser);
-          }
-        } catch (err) {
-          console.error("Error fetching user data:", err);
-        } finally {
-          setUserDataLoading(false);
-        }
+    if (!user) {
+      setUserData(null);
+      return;
+    }
+    setUserDataLoading(true);
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, async (snap) => {
+      if (snap.exists()) {
+        setUserData(snap.data());
       } else {
-        setUserData(null);
+        const newUser = {
+          email: user.email,
+          role: 'pending',
+          createdAt: Date.now()
+        };
+        await setDoc(userRef, newUser);
+        setUserData(newUser);
       }
-    };
-    fetchUserData();
+      setUserDataLoading(false);
+    }, (err) => {
+      console.error("Error fetching user data:", err);
+      setUserDataLoading(false);
+    });
+    return () => unsub();
   }, [user]);
 
   const handleAuth = async (e: React.FormEvent) => {
