@@ -12,23 +12,25 @@ interface AppUser {
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const t = ctx.currentTime;
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const playTone = (freq: number, startTime: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.38, startTime + 0.01);
+      gain.gain.setValueAtTime(0.38, startTime + 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.13);
+      osc.start(startTime);
+      osc.stop(startTime + 0.14);
+    };
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(620, t);
-    osc.frequency.exponentialRampToValueAtTime(480, t + 0.12);
-
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.4, t + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-
-    osc.start(t);
-    osc.stop(t + 0.18);
+    playTone(880, ctx.currentTime);
+    playTone(1108, ctx.currentTime + 0.15);
+    playTone(1397, ctx.currentTime + 0.30);
   } catch (_) {}
 }
 
@@ -89,8 +91,8 @@ export default function Chat({ user }: { user: any }) {
           const conversationKey = isPublic ? '公共频道' : msg.from;
           const currentTarget = targetUserRef.current;
 
+          playNotificationSound();
           if (currentTarget !== conversationKey) {
-            playNotificationSound();
             setUnreadCounts(prev => ({
               ...prev,
               [conversationKey]: (prev[conversationKey] || 0) + 1
