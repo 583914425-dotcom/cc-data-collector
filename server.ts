@@ -137,17 +137,21 @@ async function startServer() {
       io.emit("users:online", usersList);
     });
 
-    socket.on("chat:message", ({ to, message, from }) => {
-      // Find socket ID for recipient
-      let recipientSocketId = "";
-      for (const [id, username] of onlineUsers.entries()) {
-        if (username === to) {
-          recipientSocketId = id;
-          break;
+    socket.on("chat:message", ({ to, message, from, image }) => {
+      if (to === 'all') {
+        io.emit("chat:message", { from, message, to: 'all', image });
+      } else {
+        // Find socket ID for recipient
+        let recipientSocketId = "";
+        for (const [id, username] of onlineUsers.entries()) {
+          if (username === to) {
+            recipientSocketId = id;
+            break;
+          }
         }
-      }
-      if (recipientSocketId) {
-        io.to(recipientSocketId).emit("chat:message", { from, message });
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("chat:message", { from, message, to, image });
+        }
       }
     });
 

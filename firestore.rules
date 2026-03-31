@@ -208,10 +208,12 @@ service cloud.firestore {
     match /chat_messages/{messageId} {
       allow read: if isApprovedUser();
       allow create: if isApprovedUser() && 
-                    request.resource.data.keys().hasAll(['text', 'senderEmail', 'senderUid', 'createdAt']) &&
-                    request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 1000 &&
-                    request.resource.data.senderUid == request.auth.uid &&
-                    request.resource.data.senderEmail is string && request.resource.data.senderEmail.size() > 0 && request.resource.data.senderEmail.size() < 100 &&
+                    request.resource.data.keys().hasAny(['message', 'image']) &&
+                    request.resource.data.keys().hasAll(['from', 'to', 'createdAt']) &&
+                    (!('message' in request.resource.data) || (request.resource.data.message is string && request.resource.data.message.size() < 2000)) &&
+                    (!('image' in request.resource.data) || (request.resource.data.image is string && request.resource.data.image.size() < 1048576)) &&
+                    request.resource.data.from is string && request.resource.data.from.size() > 0 && request.resource.data.from.size() < 100 &&
+                    request.resource.data.to is string && request.resource.data.to.size() > 0 && request.resource.data.to.size() < 100 &&
                     request.resource.data.createdAt is timestamp;
       allow update, delete: if false;
     }
