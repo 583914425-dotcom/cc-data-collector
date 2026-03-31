@@ -154,6 +154,47 @@ const SECTION_E_FIELDS = [
   { name: 'remarkE', label: '备注', type: 'textarea' },
 ];
 
+function playSectionDone() {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
+  master.gain.value = 0.9;
+
+  const notes = [
+    { freq: 523.25, start: 0,    dur: 0.13, g: 0.55, type: 'sine'     },  // C5
+    { freq: 659.25, start: 0.11, dur: 0.13, g: 0.55, type: 'sine'     },  // E5
+    { freq: 783.99, start: 0.22, dur: 0.13, g: 0.55, type: 'sine'     },  // G5
+    { freq: 261.63, start: 0.34, dur: 0.80, g: 0.40, type: 'triangle' },  // C4 bass
+    { freq: 523.25, start: 0.34, dur: 0.80, g: 0.50, type: 'sine'     },  // C5
+    { freq: 659.25, start: 0.34, dur: 0.80, g: 0.45, type: 'sine'     },  // E5
+    { freq: 783.99, start: 0.34, dur: 0.80, g: 0.45, type: 'sine'     },  // G5
+    { freq: 1046.5, start: 0.34, dur: 0.80, g: 0.55, type: 'sine'     },  // C6
+  ];
+
+  notes.forEach(({ freq, start, dur, g, type }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(master);
+    osc.type = type as OscillatorType;
+    osc.frequency.value = freq;
+    const t = ctx.currentTime + start;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(g, t + 0.018);
+    gain.gain.setValueAtTime(g, t + dur * 0.65);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  });
+
+  setTimeout(() => ctx.close().catch(() => {}), 2500);
+}
+
+function isSectionFilled(fields: any[], values: any) {
+  const required = fields.filter(f => !f.readOnly && !f.optional && f.label !== '备注');
+  return required.length > 0 && required.every(f => String(values?.[f.name] ?? '').trim() !== '');
+}
+
 const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload, formValues }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void>, formValues?: any }) => {
   const editableFields = fields.filter(f => !f.readOnly && !f.optional && f.label !== '备注');
   const filledCount = editableFields.filter(f => String(formValues?.[f.name] ?? '').trim() !== '').length;
@@ -455,6 +496,16 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
 
   // Watch fields for auto-calculation
   const allFormValues = watch();
+
+  const allSectionsComplete = [SECTION_A_FIELDS, SECTION_B_FIELDS, SECTION_C_FIELDS, SECTION_D_FIELDS, SECTION_E_FIELDS]
+    .every(f => isSectionFilled(f, allFormValues));
+  const prevAllCompleteRef = React.useRef(false);
+  useEffect(() => {
+    if (allSectionsComplete && !prevAllCompleteRef.current) {
+      playSectionDone();
+    }
+    prevAllCompleteRef.current = allSectionsComplete;
+  }, [allSectionsComplete]);
   const bloodPressure = watch('bloodPressure');
   const height = watch('height');
   const weight = watch('weight');
