@@ -41,6 +41,7 @@ export default function Chat({ user }: { user: any }) {
     // Listen for messages
     const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log('Received snapshot, doc count:', snapshot.docs.length);
       const data = snapshot.docs.map(doc => ({
         from: doc.data().from,
         message: doc.data().message,
@@ -48,6 +49,7 @@ export default function Chat({ user }: { user: any }) {
         image: doc.data().image,
         createdAt: doc.data().createdAt
       }));
+      console.log('Processed messages:', data);
       setMessages(data);
     });
 
@@ -56,13 +58,24 @@ export default function Chat({ user }: { user: any }) {
 
   useEffect(() => {
     if (!user || !user.email) return;
-    socket.emit('user:join', user.email);
+    
+    const joinUser = () => {
+      socket.emit('user:join', user.email);
+    };
+
+    if (socket.connected) {
+      joinUser();
+    }
+
+    socket.on('connect', joinUser);
     
     socket.on('users:online', (users: string[]) => {
+      console.log('Received online users:', users);
       setOnlineUsers(users);
     });
     
     return () => {
+      socket.off('connect', joinUser);
       socket.off('users:online');
     };
   }, [user.email]);
@@ -71,18 +84,28 @@ export default function Chat({ user }: { user: any }) {
     e.preventDefault();
     if (!targetUser || (!newMessage.trim() && !image)) return;
 
-    const payload = { 
-      to: targetUser === '公共频道' ? 'all' : targetUser, 
-      message: newMessage, 
+    const payload: any = { 
       from: user.email,
-      image: image 
+      to: targetUser === '公共频道' ? 'all' : targetUser,
+      createdAt: serverTimestamp()
     };
     
-    // Save to Firestore
-    await addDoc(collection(db, 'chat_messages'), {
-      ...payload,
-      createdAt: serverTimestamp()
-    });
+    if (newMessage.trim()) {
+      payload.message = newMessage.trim();
+    }
+    if (image) {
+      payload.image = image;
+    }
+    
+    console.log('Sending message:', payload);
+    
+    try {
+      // Save to Firestore
+      await addDoc(collection(db, 'chat_messages'), payload);
+      console.log('Message saved to Firestore successfully');
+    } catch (error) {
+      console.error('Error saving message to Firestore:', error);
+    }
 
     setNewMessage('');
     setImage(null);
@@ -123,15 +146,14 @@ export default function Chat({ user }: { user: any }) {
               <span className="truncate text-sm font-bold">公共频道</span>
             </li>
             {allUsers.map(u => {
-              if (u.email === user.email) return null;
-              const isOnline = onlineUsers.includes(u.email);
+              const isOnline = onlineUsers.includes(u.email) || u.email === user.email;
               return (
                 <li 
                   key={u.id} 
                   onClick={() => setTargetUser(u.email)} 
                   className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
-                  <span className="truncate text-sm">{u.email}</span>
+                  <span className="truncate text-sm">{u.email === user.email ? 'Me (在线)' : u.email}</span>
                   <Circle className={`w-3 h-3 flex-shrink-0 ${isOnline ? 'text-green-500 fill-green-500' : 'text-gray-300 fill-gray-300'}`} />
                 </li>
               );
@@ -144,11 +166,15 @@ export default function Chat({ user }: { user: any }) {
             <h4 className="font-semibold mb-4 pb-2 border-b">与 {targetUser} 对话</h4>
             <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 mb-4">
               {messages
-                .filter(m => targetUser === '公共频道' ? (m.to === 'all' || !m.to) : (m.to === targetUser || m.from === targetUser))
+                .filter(m => {
+                  if (targetUser === '公共频道') return m.to === 'all' || !m.to;
+                  return (m.to === targetUser && m.from === user.email) || 
+                         (m.to === user.email && m.from === targetUser);
+                })
                 .map((m, i) => (
-                <div key={i} className={`flex flex-col ${m.from === 'Me' ? 'items-end' : 'items-start'}`}>
-                  <span className="text-xs text-gray-500">{m.from}</span>
-                  <div className={`p-3 rounded-2xl ${m.from === 'Me' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+                <div key={i} className={`flex flex-col ${m.from === user.email ? 'items-end' : 'items-start'}`}>
+                  <span className="text-xs text-gray-500">{m.from === user.email ? 'Me' : m.from}</span>
+                  <div className={`p-3 rounded-2xl ${m.from === user.email ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                     {m.message}
                     {m.image && (
                       <img 
