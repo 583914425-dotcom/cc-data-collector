@@ -8,6 +8,7 @@ interface AppUser {
   id: string;
   email: string;
   displayName?: string;
+  avatarUrl?: string;
 }
 
 const AVATAR_COLORS = [
@@ -27,10 +28,17 @@ function getInitial(displayName: string, email: string): string {
   return name.charAt(0).toUpperCase();
 }
 
-function Avatar({ email, displayName, size = 'md' }: { email: string, displayName?: string, size?: 'sm' | 'md' }) {
+function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email: string, displayName?: string, avatarUrl?: string, size?: 'sm' | 'md' }) {
   const color = getAvatarColor(email);
   const initial = getInitial(displayName || '', email);
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-sm';
+  if (avatarUrl) {
+    return (
+      <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 border border-gray-200`}>
+        <img src={avatarUrl} alt={displayName || email} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
   return (
     <div className={`${color} ${sizeClass} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0`}>
       {initial}
@@ -93,7 +101,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
       const data: AppUser[] = [];
       snapshot.forEach((doc) => {
         const userData = doc.data();
-        data.push({ id: doc.id, email: userData.email, displayName: userData.displayName || '' } as AppUser);
+        data.push({ id: doc.id, email: userData.email, displayName: userData.displayName || '', avatarUrl: userData.avatarUrl || '' } as AppUser);
       });
       setAllUsers(data);
     }, (error) => {
@@ -249,7 +257,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
                   <div className="relative flex-shrink-0">
-                    <Avatar email={u.email} displayName={u.displayName} size="sm" />
+                    <Avatar email={u.email} displayName={u.displayName} avatarUrl={u.avatarUrl} size="sm" />
                     <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${isOnline || u.email === user.email ? 'bg-green-500' : 'bg-gray-300'}`} />
                   </div>
                   <span className="truncate text-sm flex-1">{u.email === user.email ? `${u.displayName || u.email} (我)` : (u.displayName || u.email)}</span>
@@ -287,7 +295,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                     : '';
                   return (
                     <div key={i} className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <Avatar email={m.from} displayName={sender?.displayName} size="sm" />
+                      <Avatar email={m.from} displayName={sender?.displayName} avatarUrl={sender?.avatarUrl} size="sm" />
                       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}>
                         <span className="text-xs text-gray-500 mb-0.5 px-1">{senderName}</span>
                         <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>

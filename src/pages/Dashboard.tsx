@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Patient } from '../types';
@@ -21,10 +21,14 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
   const [displayName, setDisplayName] = useState(userData?.displayName || '');
+  const [avatarPreview, setAvatarPreview] = useState<string>(userData?.avatarUrl || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDisplayName(userData?.displayName || '');
-  }, [userData?.displayName]);
+    setAvatarPreview(userData?.avatarUrl || '');
+  }, [userData?.displayName, userData?.avatarUrl]);
 
   const showToast = (text: string, type: 'success' | 'error') => {
     setToastMessage({ text, type });
@@ -60,18 +64,60 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
 
   const handleOpenNickname = () => {
     setNicknameInput(displayName || '');
+    setAvatarPreview(userData?.avatarUrl || '');
     setShowNicknameModal(true);
   };
 
-  const handleSaveNickname = async () => {
-    const trimmed = nicknameInput.trim();
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const size = 100;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d')!;
+          const scale = Math.max(size / img.width, size / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), { displayName: trimmed });
-      setDisplayName(trimmed);
+      const compressed = await compressImage(file);
+      setAvatarPreview(compressed);
+    } catch {
+      showToast('图片处理失败', 'error');
+    }
+  };
+
+  const handleSaveNickname = async () => {
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        displayName: nicknameInput.trim(),
+        avatarUrl: avatarPreview,
+      });
+      setDisplayName(nicknameInput.trim());
       setShowNicknameModal(false);
-      showToast('昵称已保存', 'success');
+      showToast('个人资料已保存', 'success');
     } catch (err) {
       showToast('保存失败，请重试', 'error');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -290,9 +336,18 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
             </button>
             <button
               onClick={handleOpenNickname}
-              className="text-sm text-gray-500 border-l pl-4 flex items-center gap-1 hover:text-blue-600 transition-colors"
-              title="点击修改昵称"
+              className="text-sm text-gray-500 border-l pl-4 flex items-center gap-2 hover:text-blue-600 transition-colors"
+              title="点击修改个人资料"
             >
+              <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                {userData?.avatarUrl ? (
+                  <img src={userData.avatarUrl} alt="头像" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-500">
+                    {(displayName || user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
               {displayName || user.email}
               <Pencil className="w-3 h-3" />
             </button>
@@ -476,23 +531,58 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
       {showNicknameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">设置昵称</h3>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-bold text-gray-900">个人资料</h3>
               <button onClick={() => setShowNicknameModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">昵称将显示在导航栏和聊天室中，留空则显示邮箱。</p>
+
+            <div className="flex flex-col items-center mb-5">
+              <div
+                className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 cursor-pointer hover:opacity-80 transition-opacity relative group"
+                onClick={() => avatarFileRef.current?.click()}
+              >
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="头像" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                    {(nicknameInput || user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Pencil className="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">点击头像上传图片</p>
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarFileChange}
+              />
+              {avatarPreview && (
+                <button
+                  onClick={() => setAvatarPreview('')}
+                  className="text-xs text-red-500 hover:text-red-700 mt-1"
+                >
+                  移除头像
+                </button>
+              )}
+            </div>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">昵称</label>
             <input
               type="text"
               value={nicknameInput}
               onChange={(e) => setNicknameInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSaveNickname()}
-              placeholder="输入你的昵称..."
+              placeholder="输入你的昵称（留空则显示邮箱）"
               maxLength={20}
-              autoFocus
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
             />
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowNicknameModal(false)}
@@ -502,9 +592,10 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
               </button>
               <button
                 onClick={handleSaveNickname}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                disabled={savingProfile}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
               >
-                保存
+                {savingProfile ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
