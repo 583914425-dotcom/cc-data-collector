@@ -274,11 +274,11 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   }, [totalUnread]);
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center px-4 sm:px-6 lg:px-8">
+    <div className="h-screen bg-[#f4f7ff] flex flex-col overflow-hidden">
+      <header className="bg-white shadow-sm border-b border-blue-100 h-16 flex items-center px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <Link to="/" className="p-2 hover:bg-blue-100 rounded-full transition-colors">
               <ArrowLeft className="w-5 h-5 text-gray-500" />
             </Link>
             <h1 className="text-xl font-bold text-gray-900">
@@ -299,7 +299,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
           <ul className="space-y-2">
             <li 
               onClick={() => handleSelectConversation('公共频道')} 
-              className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === '公共频道' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === '公共频道' ? 'bg-blue-100 text-blue-600' : 'hover:bg-blue-50'}`}
             >
               <span className="truncate text-sm font-bold">公共频道</span>
               {(unreadCounts['公共频道'] || 0) > 0 && (
@@ -315,7 +315,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                 <li 
                   key={u.id} 
                   onClick={() => handleSelectConversation(u.email)} 
-                  className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+                  className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-600' : 'hover:bg-blue-50'}`}
                 >
                   <div className="relative flex-shrink-0">
                     <Avatar email={u.email} displayName={u.displayName} avatarUrl={u.avatarUrl} size="sm" />
@@ -388,7 +388,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                             {isMine ? '你' : senderName} 撤回了一条消息
                           </div>
                         ) : (
-                          <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                          <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-800'}`}>
                             {m.message}
                             {m.image && (
                               <img

@@ -294,7 +294,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f7ff]">
       {toastMessage && (
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${
           toastMessage.type === 'success' ? 'bg-green-600' : 'bg-red-600'
@@ -302,7 +302,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
           {toastMessage.text}
         </div>
       )}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-blue-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">预测模型数据采集系统</h1>
           <div className="flex items-center gap-4">
@@ -380,7 +380,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
           </div>
         </div>
 
-        <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white shadow-sm rounded-lg border border-blue-100 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-500">加载中...</div>
           ) : patients.length === 0 ? (
@@ -389,21 +389,21 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-blue-100">
+                <thead className="bg-blue-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">患者ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电话号码</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄(岁)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FIGO2018分期</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">录入者</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">患者ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">姓名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">电话号码</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">年龄(岁)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">FIGO2018分期</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">录入者</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-blue-500 uppercase tracking-wider">操作</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-blue-50">
                   {patients.map((patient) => (
-                    <tr key={patient.id} className="hover:bg-gray-50">
+                    <tr key={patient.id} className="hover:bg-blue-50/60 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{patient.customPatientId || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{patient.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{patient.phone || '-'}</td>

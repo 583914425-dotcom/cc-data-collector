@@ -138,7 +138,7 @@ export default function UserManagement({ user }: { user: any }) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f4f7ff] p-6">
         <div className="bg-white p-8 rounded-xl shadow-sm border border-red-200 text-center">
           <h2 className="text-xl font-bold text-red-600 mb-2">连接错误</h2>
           <p className="text-gray-600 mb-4">{error}</p>
@@ -155,18 +155,18 @@ export default function UserManagement({ user }: { user: any }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-[#f4f7ff]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#f4f7ff] p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+            <Link to="/" className="p-2 hover:bg-blue-100 rounded-full transition-colors">
               <ArrowLeft className="w-6 h-6 text-gray-600" />
             </Link>
             <h1 className="text-2xl font-bold text-gray-900">用户权限管理</h1>
@@ -185,16 +185,16 @@ export default function UserManagement({ user }: { user: any }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-sm font-medium text-gray-500">用户邮箱</th>
-                  <th className="px-6 py-4 text-sm font-medium text-gray-500">注册时间</th>
-                  <th className="px-6 py-4 text-sm font-medium text-gray-500">当前状态</th>
-                  <th className="px-6 py-4 text-sm font-medium text-gray-500">操作</th>
+                <tr className="bg-blue-50 border-b border-blue-100">
+                  <th className="px-6 py-4 text-sm font-medium text-blue-500">用户邮箱</th>
+                  <th className="px-6 py-4 text-sm font-medium text-blue-500">注册时间</th>
+                  <th className="px-6 py-4 text-sm font-medium text-blue-500">当前状态</th>
+                  <th className="px-6 py-4 text-sm font-medium text-blue-500">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-blue-50">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={u.id} className="hover:bg-blue-50/60 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -215,11 +215,11 @@ export default function UserManagement({ user }: { user: any }) {
                           <Shield className="w-3.5 h-3.5" /> 管理员
                         </span>
                       ) : u.role === 'user' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                           <UserCheck className="w-3.5 h-3.5" /> 普通用户
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                           <UserX className="w-3.5 h-3.5" /> 待审核
                         </span>
                       )}
