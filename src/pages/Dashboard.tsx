@@ -364,10 +364,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">患者列表 ({patients.length})</h2>
-            <p className="text-xs text-gray-400 mt-0.5">你已为宫颈癌数据库贡献 <span className="font-semibold text-blue-500">{patients.filter(p => p.authorUid === user.uid).length}</span> 条记录</p>
-          </div>
+          <h2 className="text-lg font-medium text-gray-900">患者列表 ({patients.length})</h2>
           <div className="flex gap-3">
             <button
               onClick={handleExport}
