@@ -121,7 +121,7 @@ async function startServer() {
       origin: "*",
     },
   });
-  const PORT = 3000;
+  const PORT = 5000;
 
   // Track online users
   const onlineUsers = new Map<string, string>(); // socketId -> username
