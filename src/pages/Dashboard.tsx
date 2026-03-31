@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Patient } from '../types';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { format } from 'date-fns';
@@ -24,15 +24,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [avatarPreview, setAvatarPreview] = useState<string>(userData?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
-  const location = useLocation();
 
-  useEffect(() => {
-    if (location.state?.contributed) {
-      setToastMessage({ text: '感谢你的贡献！已为宫颈癌数据库新增一条记录 🎉', type: 'success' });
-      setTimeout(() => setToastMessage(null), 4000);
-      window.history.replaceState({}, '');
-    }
-  }, []);
 
   useEffect(() => {
     setDisplayName(userData?.displayName || '');
@@ -372,7 +364,10 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-medium text-gray-900">患者列表 ({patients.length})</h2>
+          <div>
+            <h2 className="text-lg font-medium text-gray-900">患者列表 ({patients.length})</h2>
+            <p className="text-xs text-gray-400 mt-0.5">你已为宫颈癌数据库贡献 <span className="font-semibold text-blue-500">{patients.filter(p => p.authorUid === user.uid).length}</span> 条记录</p>
+          </div>
           <div className="flex gap-3">
             <button
               onClick={handleExport}
