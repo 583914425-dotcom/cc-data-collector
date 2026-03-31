@@ -7,6 +7,7 @@ import { db } from '../firebase';
 interface AppUser {
   id: string;
   email: string;
+  displayName?: string;
 }
 
 function playNotificationSound() {
@@ -64,7 +65,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
       const data: AppUser[] = [];
       snapshot.forEach((doc) => {
         const userData = doc.data();
-        data.push({ id: doc.id, email: userData.email } as AppUser);
+        data.push({ id: doc.id, email: userData.email, displayName: userData.displayName || '' } as AppUser);
       });
       setAllUsers(data);
     }, (error) => {
@@ -219,7 +220,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   onClick={() => handleSelectConversation(u.email)} 
                   className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
                 >
-                  <span className="truncate text-sm">{u.email === user.email ? 'Me (在线)' : u.email}</span>
+                  <span className="truncate text-sm">{u.email === user.email ? `${u.displayName || u.email} (我)` : (u.displayName || u.email)}</span>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {unread > 0 && (
                       <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
@@ -236,7 +237,9 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
 
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <>
-            <h4 className="font-semibold mb-4 pb-2 border-b">与 {targetUser} 对话</h4>
+            <h4 className="font-semibold mb-4 pb-2 border-b">
+              与 {targetUser === '公共频道' ? '公共频道' : (allUsers.find(u => u.email === targetUser)?.displayName || targetUser)} 对话
+            </h4>
             <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 mb-4">
               {messages
                 .filter(m => {
@@ -246,7 +249,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                 })
                 .map((m, i) => (
                 <div key={i} className={`flex flex-col ${m.from === user.email ? 'items-end' : 'items-start'}`}>
-                  <span className="text-xs text-gray-500">{m.from === user.email ? 'Me' : m.from}</span>
+                  <span className="text-xs text-gray-500">{m.from === user.email ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (allUsers.find(u => u.email === m.from)?.displayName || m.from)}</span>
                   <div className={`p-3 rounded-2xl ${m.from === user.email ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                     {m.message}
                     {m.image && (
