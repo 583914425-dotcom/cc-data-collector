@@ -4,6 +4,54 @@ import { Link } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
+function playMessageSent() {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
+  master.gain.value = 0.5;
+
+  // Whoosh: noise burst with falling pitch filter, plus a soft high "pip"
+  const bufferSize = ctx.sampleRate * 0.18;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(3200, ctx.currentTime);
+  filter.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.18);
+  filter.Q.value = 0.8;
+
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.9, ctx.currentTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(master);
+  noise.start(ctx.currentTime);
+  noise.stop(ctx.currentTime + 0.2);
+
+  // Soft "pip" at end
+  const pip = ctx.createOscillator();
+  const pipGain = ctx.createGain();
+  pip.connect(pipGain); pipGain.connect(master);
+  pip.type = 'sine';
+  pip.frequency.value = 1200;
+  pipGain.gain.setValueAtTime(0, ctx.currentTime + 0.12);
+  pipGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.15);
+  pipGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+  pip.start(ctx.currentTime + 0.12);
+  pip.stop(ctx.currentTime + 0.3);
+
+  setTimeout(() => ctx.close().catch(() => {}), 1000);
+}
+
 interface AppUser {
   id: string;
   email: string;
@@ -224,6 +272,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
     
     try {
       await addDoc(collection(db, 'chat_messages'), payload);
+      playMessageSent();
     } catch (error) {
       console.error('Error saving message to Firestore:', error);
     }
