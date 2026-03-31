@@ -94,73 +94,7 @@ service cloud.firestore {
       return data.keys().hasAll(['name', 'authorUid', 'updatedAt']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.authorUid is string && data.authorUid.size() > 0 && data.authorUid.size() < 128 &&
-             data.updatedAt is timestamp &&
-             (!('createdAt' in data) || data.createdAt is timestamp) &&
-             (!('customPatientId' in data) || (data.customPatientId is string && data.customPatientId.size() < 100)) &&
-             (!('age' in data) || data.age is number || data.age is string) &&
-             (!('ageGroup' in data) || (data.ageGroup is string && data.ageGroup.size() < 20)) &&
-             (!('gender' in data) || (data.gender is string && data.gender.size() < 10)) &&
-             (!('height' in data) || data.height is number) &&
-             (!('weight' in data) || data.weight is number) &&
-             (!('bmi' in data) || data.bmi is number) &&
-             (!('bmiGroup' in data) || (data.bmiGroup is string && data.bmiGroup.size() < 20)) &&
-             (!('menstrualStatus' in data) || (data.menstrualStatus is string && data.menstrualStatus.size() < 20)) &&
-             (!('abortionHistory' in data) || (data.abortionHistory is string && data.abortionHistory.size() < 20)) &&
-             (!('hpvInfection' in data) || (data.hpvInfection is string && data.hpvInfection.size() < 20)) &&
-             (!('hypertensionGrade' in data) || (data.hypertensionGrade is string && data.hypertensionGrade.size() < 20)) &&
-             (!('figo2018' in data) || (data.figo2018 is string && data.figo2018.size() < 20)) &&
-             (!('figoSummary' in data) || (data.figoSummary is string && data.figoSummary.size() < 20)) &&
-             (!('histology' in data) || (data.histology is string && data.histology.size() < 50)) &&
-             (!('tumorMaxDiameter' in data) || data.tumorMaxDiameter is number) &&
-             (!('tumorMaxDiameterGroup' in data) || (data.tumorMaxDiameterGroup is string && data.tumorMaxDiameterGroup.size() < 20)) &&
-             (!('parametrialInvasion' in data) || (data.parametrialInvasion is string && data.parametrialInvasion.size() < 20)) &&
-             (!('uterineBodyInvasion' in data) || (data.uterineBodyInvasion is string && data.uterineBodyInvasion.size() < 20)) &&
-             (!('vaginalInvasion' in data) || (data.vaginalInvasion is string && data.vaginalInvasion.size() < 20)) &&
-             (!('bladderInvasion' in data) || (data.bladderInvasion is string && data.bladderInvasion.size() < 20)) &&
-             (!('rectalInvasion' in data) || (data.rectalInvasion is string && data.rectalInvasion.size() < 20)) &&
-             (!('pelvicLymphNodeMetastasis' in data) || (data.pelvicLymphNodeMetastasis is string && data.pelvicLymphNodeMetastasis.size() < 20)) &&
-             (!('remarkA' in data) || (data.remarkA is string && data.remarkA.size() < 1000)) &&
-             (!('remarkB' in data) || (data.remarkB is string && data.remarkB.size() < 1000)) &&
-             (!('remarkC' in data) || (data.remarkC is string && data.remarkC.size() < 1000)) &&
-             (!('remarkD' in data) || (data.remarkD is string && data.remarkD.size() < 1000)) &&
-             (!('remarkE' in data) || (data.remarkE is string && data.remarkE.size() < 1000)) &&
-             (!('rbcCount' in data) || data.rbcCount is number) &&
-             (!('wbcCount' in data) || data.wbcCount is number) &&
-             (!('plateletCount' in data) || data.plateletCount is number) &&
-             (!('lymphocyteCount' in data) || data.lymphocyteCount is number) &&
-             (!('neutrophilCount' in data) || data.neutrophilCount is number) &&
-             (!('monocyteCount' in data) || data.monocyteCount is number) &&
-             (!('preTreatmentHb' in data) || data.preTreatmentHb is number) &&
-             (!('hbGroup' in data) || (data.hbGroup is string && data.hbGroup.size() < 20)) &&
-             (!('scca' in data) || data.scca is number) &&
-             (!('sccaGroup' in data) || (data.sccaGroup is string && data.sccaGroup.size() < 20)) &&
-             (!('nlr' in data) || data.nlr is number) &&
-             (!('plr' in data) || data.plr is number) &&
-             (!('lmr' in data) || data.lmr is number) &&
-             (!('radiotherapyTech' in data) || (data.radiotherapyTech is string && data.radiotherapyTech.size() < 50)) &&
-             (!('ebrtDose' in data) || data.ebrtDose is number) &&
-             (!('ebrtDoseGroup' in data) || (data.ebrtDoseGroup is string && data.ebrtDoseGroup.size() < 20)) &&
-             (!('icbtDose' in data) || data.icbtDose is number) &&
-             (!('eqd2' in data) || data.eqd2 is number) &&
-             (!('eqd4' in data) || data.eqd4 is number) &&
-             (!('concurrentChemoCycles' in data) || data.concurrentChemoCycles is number) &&
-             (!('platinumChemo' in data) || (data.platinumChemo is string && data.platinumChemo.size() < 50)) &&
-             (!('platinumDrug' in data) || (data.platinumDrug is string && data.platinumDrug.size() < 50)) &&
-             (!('concurrentCisplatinWeekly' in data) || (data.concurrentCisplatinWeekly is string && data.concurrentCisplatinWeekly.size() < 20)) &&
-             (!('concurrentChemoTimes' in data) || data.concurrentChemoTimes is number) &&
-             (!('totalChemoDose' in data) || data.totalChemoDose is number) &&
-             (!('treatmentStartDate' in data) || (data.treatmentStartDate is string && data.treatmentStartDate.size() < 20)) &&
-             (!('progressionDate' in data) || (data.progressionDate is string && data.progressionDate.size() < 20)) &&
-             (!('deathDate' in data) || (data.deathDate is string && data.deathDate.size() < 20)) &&
-             (!('metastasis' in data) || (data.metastasis is string && data.metastasis.size() < 20)) &&
-             (!('metastasisSite' in data) || (data.metastasisSite is string && data.metastasisSite.size() < 50)) &&
-             (!('radiochemotherapyEfficacy' in data) || (data.radiochemotherapyEfficacy is string && data.radiochemotherapyEfficacy.size() < 20)) &&
-             (!('recurrence' in data) || (data.recurrence is string && data.recurrence.size() < 20)) &&
-             (!('pfs' in data) || data.pfs is number) &&
-             (!('os' in data) || data.os is number) &&
-             (!('survivalStatus' in data) || (data.survivalStatus is string && data.survivalStatus.size() < 20)) &&
-             (!('followUpDate' in data) || (data.followUpDate is string && data.followUpDate.size() < 20)) &&
-             (!('imagingFiles' in data) || data.imagingFiles is list);
+             data.updatedAt is timestamp;
     }
 
     function isValidImagingFile(data) {
