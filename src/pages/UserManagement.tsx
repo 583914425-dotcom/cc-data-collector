@@ -207,7 +207,7 @@ export default function UserManagement({ user }: { user: any }) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {u.createdAt ? String(u.createdAt) : '-'}
+                      {u.createdAt ? new Date(u.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {u.role === 'admin' ? (
