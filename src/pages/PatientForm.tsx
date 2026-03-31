@@ -154,12 +154,34 @@ const SECTION_E_FIELDS = [
   { name: 'remarkE', label: '备注', type: 'textarea' },
 ];
 
-const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void> }) => {
+const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload, formValues }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void>, formValues?: any }) => {
+  const editableFields = fields.filter(f => !f.readOnly);
+  const filledCount = editableFields.filter(f => String(formValues?.[f.name] ?? '').trim() !== '').length;
+  const isComplete = editableFields.length > 0 && filledCount === editableFields.length;
+  const prevCompleteRef = React.useRef(false);
+  const [justCompleted, setJustCompleted] = React.useState(false);
+  React.useEffect(() => {
+    if (isComplete && !prevCompleteRef.current) {
+      setJustCompleted(true);
+      const t = setTimeout(() => setJustCompleted(false), 1800);
+      return () => clearTimeout(t);
+    }
+    prevCompleteRef.current = isComplete;
+  }, [isComplete]);
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6" id={id}>
+    <div className={`bg-white rounded-xl shadow-sm mb-6 border transition-all duration-700 ${justCompleted ? 'border-green-400 shadow-green-100 shadow-md' : isComplete ? 'border-green-200' : 'border-gray-100'}`} id={id}>
       <div className="bg-gray-50 px-6 py-3 border-bottom border-gray-100 flex items-center justify-between">
-        <div className='flex items-center gap-4'>
+        <div className='flex items-center gap-3'>
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h3>
+          {isComplete && (
+            <span className={`inline-flex items-center gap-1 text-xs font-medium text-green-600 transition-all duration-300 ${justCompleted ? 'scale-110' : 'scale-100'}`}>
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              已完成
+            </span>
+          )}
+          {!isComplete && editableFields.length > 0 && (
+            <span className="text-xs text-gray-400">{filledCount}/{editableFields.length}</span>
+          )}
         </div>
         <div className='flex items-center gap-2'>
           <button type="button" onClick={() => clearSection(fields)} className="text-xs text-gray-500 hover:text-red-600">清空</button>
@@ -432,6 +454,7 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
   });
 
   // Watch fields for auto-calculation
+  const allFormValues = watch();
   const bloodPressure = watch('bloodPressure');
   const height = watch('height');
   const weight = watch('weight');
@@ -1025,31 +1048,31 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
                 {saving ? '保存中...' : '保存信息'}
               </button>
             </div>
-            <FormSection title="A. 基本信息" id="section-a" fields={SECTION_A_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload}>
+            <FormSection title="A. 基本信息" id="section-a" fields={SECTION_A_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues}>
               {SECTION_A_FIELDS.map(field => (
                 <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
               ))}
             </FormSection>
 
-            <FormSection title="B. 分期与病理" id="section-b" fields={SECTION_B_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload}>
+            <FormSection title="B. 分期与病理" id="section-b" fields={SECTION_B_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues}>
               {SECTION_B_FIELDS.map(field => (
                 <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
               ))}
             </FormSection>
 
-            <FormSection title="C. 实验室与炎症指标" id="section-c" fields={SECTION_C_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload}>
+            <FormSection title="C. 实验室与炎症指标" id="section-c" fields={SECTION_C_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues}>
               {SECTION_C_FIELDS.map(field => (
                 <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
               ))}
             </FormSection>
 
-            <FormSection title="D. 治疗方案" id="section-d" fields={SECTION_D_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload}>
+            <FormSection title="D. 治疗方案" id="section-d" fields={SECTION_D_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues}>
               {SECTION_D_FIELDS.map(field => (
                 <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
               ))}
             </FormSection>
 
-            <FormSection title="E. 结局与随访" id="section-e" fields={SECTION_E_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload}>
+            <FormSection title="E. 结局与随访" id="section-e" fields={SECTION_E_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues}>
               {SECTION_E_FIELDS.map(field => (
                 <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
               ))}
