@@ -34,7 +34,7 @@ function playNotificationSound() {
   } catch (_) {}
 }
 
-export default function Chat({ user }: { user: any }) {
+export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: () => void, onLeave?: () => void }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [messages, setMessages] = useState<{from: string, message: string, to?: string, image?: string, createdAt?: any}[]>([]);
@@ -45,8 +45,14 @@ export default function Chat({ user }: { user: any }) {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessagesRef = useRef<typeof messages>([]);
   const targetUserRef = useRef(targetUser);
+
+  useEffect(() => {
+    onEnter?.();
+    return () => { onLeave?.(); };
+  }, []);
 
   useEffect(() => {
     targetUserRef.current = targetUser;
@@ -117,9 +123,7 @@ export default function Chat({ user }: { user: any }) {
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages, targetUser]);
 
   const handleSelectConversation = useCallback((key: string) => {
@@ -172,7 +176,7 @@ export default function Chat({ user }: { user: any }) {
   }, [totalUnread]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -256,6 +260,7 @@ export default function Chat({ user }: { user: any }) {
                   </div>
                 </div>
               ))}
+              <div ref={bottomRef} />
             </div>
             {image && (
               <div className="mb-2 p-2 bg-gray-100 rounded-lg inline-block">

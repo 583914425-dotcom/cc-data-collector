@@ -7,7 +7,7 @@ import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, Ale
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
-export default function Dashboard({ user, userData }: { user: any, userData?: any }) {
+export default function Dashboard({ user, userData, chatUnread = 0 }: { user: any, userData?: any, chatUnread?: number }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -247,10 +247,15 @@ export default function Dashboard({ user, userData }: { user: any, userData?: an
             )}
             <Link
               to="/chat"
-              className="text-gray-500 hover:text-green-600 flex items-center gap-1 text-sm transition-colors"
+              className="text-gray-500 hover:text-green-600 flex items-center gap-1 text-sm transition-colors relative"
               title="进入团队聊天室"
             >
               <MessageSquare className="w-4 h-4" /> 聊天室
+              {chatUnread > 0 && (
+                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {chatUnread}
+                </span>
+              )}
             </Link>
             <button
               onClick={() => setShowSettingsModal(true)}

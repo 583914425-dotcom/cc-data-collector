@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { setOnline, setOffline } from './presence';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +10,29 @@ import PatientForm from './pages/PatientForm';
 import UserManagement from './pages/UserManagement';
 import Chat from './pages/Chat';
 import { Loader2, LogIn, UserPlus, Chrome } from 'lucide-react';
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const playTone = (freq: number, startTime: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.38, startTime + 0.01);
+      gain.gain.setValueAtTime(0.38, startTime + 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.13);
+      osc.start(startTime);
+      osc.stop(startTime + 0.14);
+    };
+    playTone(880, ctx.currentTime);
+    playTone(1108, ctx.currentTime + 0.15);
+    playTone(1397, ctx.currentTime + 0.30);
+  } catch (_) {}
+}
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
@@ -19,6 +42,9 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [chatUnread, setChatUnread] = useState(0);
+  const prevMsgCountRef = useRef<number | null>(null);
+  const isOnChatPageRef = useRef(false);
 
   useEffect(() => {
     if (!user?.uid || !user?.email) return;
@@ -33,6 +59,37 @@ export default function App() {
       setOffline(user.uid);
     };
   }, [user?.uid, user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(d => d.data());
+      if (prevMsgCountRef.current === null) {
+        prevMsgCountRef.current = msgs.length;
+        return;
+      }
+      if (msgs.length > prevMsgCountRef.current && !isOnChatPageRef.current) {
+        const newMsgs = msgs.slice(prevMsgCountRef.current);
+        const newFromOthers = newMsgs.filter(m => m.from !== user.email);
+        if (newFromOthers.length > 0) {
+          playNotificationSound();
+          setChatUnread(prev => prev + newFromOthers.length);
+        }
+      }
+      prevMsgCountRef.current = msgs.length;
+    });
+    return () => unsub();
+  }, [user?.email]);
+
+  const clearChatUnread = useCallback(() => {
+    setChatUnread(0);
+    isOnChatPageRef.current = true;
+  }, []);
+
+  const onChatLeave = useCallback(() => {
+    isOnChatPageRef.current = false;
+  }, []);
 
   const handleGoogleLogin = async () => {
     setError('');
@@ -52,21 +109,16 @@ export default function App() {
       if (user) {
         setUserDataLoading(true);
         try {
-          console.log('Fetching user data for UID:', user.uid);
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            console.log('User data found:', userDoc.data());
             setUserData(userDoc.data());
           } else {
-            console.log('User data not found, creating new profile...');
-            // Create user profile if it doesn't exist
             const newUser = {
               email: user.email,
               role: 'pending',
               createdAt: Date.now()
             };
             await setDoc(doc(db, 'users', user.uid), newUser);
-            console.log('User profile created successfully');
             setUserData(newUser);
           }
         } catch (err) {
@@ -203,11 +255,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard user={user} userData={userData} />} />
+        <Route path="/" element={<Dashboard user={user} userData={userData} chatUnread={chatUnread} />} />
         <Route path="/patient/new" element={<PatientForm user={user} />} />
         <Route path="/patient/:id" element={<PatientForm user={user} />} />
         <Route path="/users" element={userData?.role === 'admin' ? <UserManagement user={user} /> : <Navigate to="/" replace />} />
-        <Route path="/chat" element={<Chat user={user} />} />
+        <Route path="/chat" element={<Chat user={user} onEnter={clearChatUnread} onLeave={onChatLeave} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
