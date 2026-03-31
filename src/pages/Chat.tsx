@@ -249,7 +249,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                 })
                 .map((m, i) => (
                 <div key={i} className={`flex flex-col ${m.from === user.email ? 'items-end' : 'items-start'}`}>
-                  <span className="text-xs text-gray-500">{m.from === user.email ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (allUsers.find(u => u.email === m.from)?.displayName || m.from)}</span>
+                  <span className="text-xs text-gray-500 mb-0.5">{m.from === user.email ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (allUsers.find(u => u.email === m.from)?.displayName || m.from)}</span>
                   <div className={`p-3 rounded-2xl ${m.from === user.email ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                     {m.message}
                     {m.image && (
@@ -261,6 +261,13 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                       />
                     )}
                   </div>
+                  {m.createdAt && (
+                    <span className="text-xs text-gray-400 mt-0.5">
+                      {m.createdAt.toDate
+                        ? m.createdAt.toDate().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                        : new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
               ))}
               <div ref={bottomRef} />
