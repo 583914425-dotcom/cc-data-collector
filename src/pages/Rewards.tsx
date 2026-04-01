@@ -237,7 +237,11 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                 <div key={v.id} className="flex items-center gap-2 text-xs px-1">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${v.claimedBy ? 'bg-green-400' : 'bg-gray-300'}`} />
                   <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
-                  <span className="shrink-0 text-gray-400">{v.claimedBy ? `已领 (${v.claimedByEmail?.split('@')[0]})` : '未领'}</span>
+                  <span className="shrink-0 text-gray-400">
+                    {v.claimedBy
+                      ? `已领 (${stats.find(s => s.uid === v.claimedBy)?.name ?? v.claimedByEmail?.split('@')[0]})`
+                      : '未领'}
+                  </span>
                   <button onClick={() => deleteVoucher(v.id)} className="text-red-400 hover:text-red-600 shrink-0">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -382,7 +386,9 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                     <div key={v.id} className="flex items-center gap-3 text-sm">
                       <span className="text-xl w-8 text-center">{m?.emoji ?? '🎁'}</span>
                       <span className="text-gray-700 font-medium flex-1">{m?.reward ?? '奖励'}</span>
-                      <span className="text-gray-500 text-xs">{v.claimedByEmail?.split('@')[0]}</span>
+                      <span className="text-gray-500 text-xs">
+                        {stats.find(s => s.uid === v.claimedBy)?.name ?? v.claimedByEmail?.split('@')[0]}
+                      </span>
                       <span className="text-green-500 text-xs font-medium">✓ 已领取</span>
                     </div>
                   );
