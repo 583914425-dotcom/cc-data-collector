@@ -76,8 +76,8 @@ migrate((app) => {
     deleteRule: '@request.auth.role = "admin"',
   });
   vouchers.fields.add(new NumberField({ name: "milestoneCount" }));
-  vouchers.fields.add(new TextField({ name: "url" }));
-  vouchers.fields.add(new TextField({ name: "imageUrl" }));
+  vouchers.fields.add(new TextField({ name: "url", max: 500000 }));
+  vouchers.fields.add(new TextField({ name: "imageUrl", max: 500000 }));
   vouchers.fields.add(new TextField({ name: "claimedBy" }));
   vouchers.fields.add(new TextField({ name: "claimedByEmail" }));
   vouchers.fields.add(new TextField({ name: "claimedByName" }));
