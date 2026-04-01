@@ -136,7 +136,7 @@ service cloud.firestore {
                     (isDocOwner() || isAdmin()) &&
                     uidNotModified() &&
                     (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isDocOwner();
     }
 
     match /chat_messages/{messageId} {
