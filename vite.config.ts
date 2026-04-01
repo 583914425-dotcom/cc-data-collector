@@ -21,6 +21,16 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       allowedHosts: true,
       host: '0.0.0.0',
+      watch: {
+        ignored: [
+          '**/pb_data/**',
+          '**/.local/**',
+          '**/.cache/**',
+          '**/pb_migrations/**',
+          '**/node_modules/**',
+          '**/dist/**',
+        ],
+      },
       proxy: {
         '/pb-api': {
           target: 'http://localhost:8090',

@@ -43,11 +43,14 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "fuser -k 8090/tcp 2>/dev/null; sleep 1; ./bin/pocketbase serve --http=0.0.0.0:8090 --dir=./pb_data"
-waitForPort = 8090
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8090
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "vm"
