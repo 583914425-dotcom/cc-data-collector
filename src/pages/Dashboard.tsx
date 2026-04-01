@@ -25,7 +25,6 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [savingProfile, setSavingProfile] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const [milestoneAlert, setMilestoneAlert] = useState<{ count: number; reward: string } | null>(null);
-  const prevMyCountRef = useRef<number | null>(null);
 
   const MILESTONES: { count: number; reward: string }[] = [
     { count: 3, reward: '🧋 喜茶一杯' },
@@ -187,18 +186,17 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   useEffect(() => {
     if (!user?.uid || patients.length === 0) return;
     const myCount = patients.filter(p => p.authorUid === user.uid).length;
-    const storageKey = `milestone_last_${user.uid}`;
-    const lastCelebrated = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    if (prevMyCountRef.current === null) {
-      prevMyCountRef.current = myCount;
-      return;
-    }
-    const prev = prevMyCountRef.current;
-    prevMyCountRef.current = myCount;
-    if (myCount <= prev) return;
-    const hit = [...MILESTONES].reverse().find(m => myCount >= m.count && prev < m.count && m.count > lastCelebrated);
+    const celebratedKey = `milestone_celebrated_${user.uid}`;
+    const prevCountKey = `milestone_prevcount_${user.uid}`;
+    const lastCelebrated = parseInt(localStorage.getItem(celebratedKey) || '0', 10);
+    const rawPrev = localStorage.getItem(prevCountKey);
+    localStorage.setItem(prevCountKey, String(myCount));
+    if (rawPrev === null) return;
+    const prevCount = parseInt(rawPrev, 10);
+    if (myCount <= prevCount) return;
+    const hit = [...MILESTONES].reverse().find(m => myCount >= m.count && prevCount < m.count && m.count > lastCelebrated);
     if (hit) {
-      localStorage.setItem(storageKey, String(hit.count));
+      localStorage.setItem(celebratedKey, String(hit.count));
       setMilestoneAlert(hit);
       playVictorySound();
     }
