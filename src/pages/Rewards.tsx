@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, runTransaction, doc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, runTransaction, doc, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2 } from 'lucide-react';
 
 const MILESTONES = [
   { count: 3,   topN: 4, reward: '喜茶饮品券',            emoji: '🧋' },
@@ -91,21 +91,27 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
   // --- admin add voucher ---
   const saveVoucher = async (milestoneCount: number) => {
-    if (!newUrl.trim()) return;
+    const urls = newUrl.split(/\s+/).map(u => u.trim()).filter(u => u.length > 0);
+    if (urls.length === 0) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, 'vouchers'), {
+      await Promise.all(urls.map(url => addDoc(collection(db, 'vouchers'), {
         milestoneCount,
-        url:            newUrl.trim(),
+        url,
         claimedBy:      null,
         claimedByEmail: null,
         claimedAt:      null,
-      });
+      })));
       setNewUrl('');
       setAddingFor(null);
     } finally {
       setSaving(false);
     }
+  };
+
+  const deleteVoucher = async (id: string) => {
+    if (!confirm('确认删除这条兑换券？')) return;
+    await deleteDoc(doc(db, 'vouchers', id));
   };
 
   const myVoucher   = (milestoneCount: number) => vouchers.find(v => v.milestoneCount === milestoneCount && v.claimedBy === user.uid);
@@ -174,12 +180,12 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
               <p className="text-sm font-medium text-blue-800">
                 添加「{MILESTONES.find(m => m.count === addingFor)?.emoji} {MILESTONES.find(m => m.count === addingFor)?.reward}」兑换链接
               </p>
-              <input
-                type="url"
+              <textarea
                 value={newUrl}
                 onChange={e => setNewUrl(e.target.value)}
-                placeholder="粘贴兑换链接…"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                placeholder={"粘贴兑换链接（支持多条，每行一个）…"}
+                rows={4}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none font-mono"
               />
               <div className="flex gap-2">
                 <button
@@ -196,6 +202,24 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   取消
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* 管理员：显示已添加的券 + 删除按钮 */}
+          {isAdmin && addingFor !== null && (
+            <div className="mt-2 space-y-1">
+              {vouchers.filter(v => v.milestoneCount === addingFor).map(v => (
+                <div key={v.id} className="flex items-center gap-2 text-xs px-1">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${v.claimedBy ? 'bg-green-400' : 'bg-gray-300'}`} />
+                  <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
+                  <span className="shrink-0 text-gray-400">{v.claimedBy ? `已领 (${v.claimedByEmail?.split('@')[0]})` : '未领'}</span>
+                  {!v.claimedBy && (
+                    <button onClick={() => deleteVoucher(v.id)} className="text-red-400 hover:text-red-600 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
