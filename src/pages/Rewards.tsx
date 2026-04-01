@@ -361,6 +361,36 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
             );
           })}
         </div>
+
+        {/* 领取记录 */}
+        {vouchers.filter(v => v.claimedBy).length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <span className="text-lg">🎉</span> 领取记录
+            </h2>
+            <div className="space-y-2">
+              {vouchers
+                .filter(v => v.claimedBy)
+                .sort((a, b) => {
+                  const ta = a.claimedAt?.toMillis?.() ?? 0;
+                  const tb = b.claimedAt?.toMillis?.() ?? 0;
+                  return tb - ta;
+                })
+                .map(v => {
+                  const m = MILESTONES.find(m => m.count === v.milestoneCount);
+                  return (
+                    <div key={v.id} className="flex items-center gap-3 text-sm">
+                      <span className="text-xl w-8 text-center">{m?.emoji ?? '🎁'}</span>
+                      <span className="text-gray-700 font-medium flex-1">{m?.reward ?? '奖励'}</span>
+                      <span className="text-gray-500 text-xs">{v.claimedByEmail?.split('@')[0]}</span>
+                      <span className="text-green-500 text-xs font-medium">✓ 已领取</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
