@@ -157,21 +157,47 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
             <Gift className="w-5 h-5 text-pink-500" /> 奖励规则
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {MILESTONES.map(m => {
-              const c = countFor(m.count);
+              const c          = countFor(m.count);
+              const myCount    = stats.find(s => s.uid === user?.uid)?.count ?? 0;
+              const reached    = myCount >= m.count;
+              const mv         = myVoucher(m.count);
+              const canClaim   = reached && !mv && hasUnclaimed(m.count);
+              const isClaiming = claiming === m.count;
               return (
-                <div key={m.count} className="flex items-center gap-3 text-sm">
+                <div key={m.count} className={`flex items-center gap-3 text-sm rounded-lg px-2 py-1 transition-colors ${reached ? 'bg-green-50' : ''}`}>
                   <span className="text-xl w-8 text-center">{m.emoji}</span>
-                  <span className="text-gray-500 w-24 shrink-0">
-                    达到 <span className="font-bold text-gray-800">{m.count} 例</span>
+                  <span className={`w-24 shrink-0 ${reached ? 'text-green-700 font-semibold' : 'text-gray-500'}`}>
+                    达到 <span className="font-bold">{m.count} 例</span>
                   </span>
-                  <span className="text-gray-400 shrink-0">前 {m.topN} 名</span>
-                  <span className="text-gray-700 font-medium flex-1">{m.reward}</span>
+                  <span className="text-gray-700 font-medium flex-1">{m.reward}
+                    {reached && <span className="ml-1 text-green-600 text-xs">✓ 已达成</span>}
+                  </span>
                   {c.total > 0 && (
                     <span className={`text-xs shrink-0 ${c.unclaimed === 0 ? 'text-red-400' : 'text-gray-400'}`}>
                       剩 {c.unclaimed}/{c.total}
                     </span>
+                  )}
+                  {canClaim && (
+                    <button
+                      onClick={() => claim(m.count)}
+                      disabled={isClaiming}
+                      className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 disabled:opacity-60"
+                    >
+                      {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                      领取
+                    </button>
+                  )}
+                  {mv && (
+                    <a href={mv.url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 hover:bg-blue-100"
+                    >
+                      <ExternalLink className="w-3 h-3" /> 兑换
+                    </a>
+                  )}
+                  {reached && !mv && !hasUnclaimed(m.count) && (
+                    <span className="text-xs text-gray-400 shrink-0">待补充</span>
                   )}
                   {showAdmin && (
                     <button
