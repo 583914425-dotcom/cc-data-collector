@@ -340,8 +340,8 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                             <span className="text-xs text-gray-400">兑换券待补充</span>
                           )}
 
-                          {/* 管理员查看谁领了 */}
-                          {showAdmin && !isMe && (
+                          {/* 所有人都能看别人有没有领 */}
+                          {!isMe && (
                             <span className="text-xs text-gray-400">
                               {vouchers.find(v => v.milestoneCount === m.count && v.claimedBy === stat.uid)
                                 ? '✓ 已领取'
