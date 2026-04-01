@@ -3,7 +3,7 @@ migrate((app) => {
   // ── Extend the built-in users auth collection ──────────────────────────────
   const users = app.findCollectionByNameOrId("users");
   users.fields.add(new TextField({ name: "role" }));
-  users.fields.add(new TextField({ name: "avatarUrl" }));
+  users.fields.add(new TextField({ name: "avatarUrl", max: 500000 }));
 
   users.listRule   = '@request.auth.id != ""';
   users.viewRule   = '@request.auth.id != ""';
@@ -43,7 +43,7 @@ migrate((app) => {
   chat.fields.add(new TextField({ name: "from" }));
   chat.fields.add(new TextField({ name: "to" }));
   chat.fields.add(new TextField({ name: "message" }));
-  chat.fields.add(new TextField({ name: "image" }));
+  chat.fields.add(new TextField({ name: "image", max: 500000 }));
   chat.fields.add(new BoolField({ name: "recalled" }));
   chat.fields.add(new AutodateField({ name: "created", onCreate: true, onUpdate: false }));
   chat.fields.add(new AutodateField({ name: "updated", onCreate: true, onUpdate: true }));
