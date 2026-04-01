@@ -145,8 +145,10 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
       setDisplayName(nicknameInput.trim());
       setShowNicknameModal(false);
       showToast('个人资料已保存', 'success');
-    } catch (err) {
-      showToast('保存失败，请重试', 'error');
+    } catch (err: any) {
+      console.error('Save profile error:', err, err?.response, err?.data);
+      const msg = err?.response?.message || err?.message || '';
+      showToast(`保存失败: ${msg || '请重试'}`, 'error');
     } finally {
       setSavingProfile(false);
     }
