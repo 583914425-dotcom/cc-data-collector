@@ -32,7 +32,15 @@
 `/pb-api` 路径从 Express (5000) 代理到 PocketBase (8090)：
 - **关键**：使用 `fixRequestBody` (http-proxy-middleware v3) 修复 `express.json()` 消费 body 流导致 POST 无法转发的问题
 - CORS 头在代理路由前统一添加，支持跨端口请求
-- `src/lib/pb.ts` 始终使用 `window.location.hostname + port(fallback:5000)` 构造 baseUrl，确保请求绕过 CDN 直达 Express
+- `src/lib/pb.ts` 使用 `window.location.origin` 构造 baseUrl，跟随页面实际访问来源（CDN 或直连），避免硬编码 `:5000` 在 CDN 环境下连接失败
+
+## Critical Fixes & Notes
+
+- **TextField max**: PocketBase v0.36 TextField 不设 max 时默认 5000 字符。`avatarUrl`、`chat_messages.image`、`vouchers.imageUrl/url` 等存 base64 的字段需显式设 `max: 500000`
+- **Vite watch**: 需在 vite.config.ts 的 `server.watch.ignored` 中排除 `pb_data/`、`.local/`、`.cache/`，否则数据库 WAL 文件变化会不断触发整页刷新，中断请求（status:0）
+- **Vite HMR**: server.ts 中 `createViteServer` 必须传 `hmr: { server: httpServer }`，否则 HMR WebSocket 连接不稳定，触发页面刷新
+- **AutodateField**: PocketBase v0.36 base collection 的 `created`/`updated` 字段必须显式声明 `AutodateField`，否则 `sort=-updated` 返回 400
+- **Workflow startup**: 启动命令前加 `fuser -k {port}/tcp 2>/dev/null; sleep 1;` 防止重启时端口占用崩溃
 
 ## PocketBase Collections
 

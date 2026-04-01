@@ -2,12 +2,9 @@ import PocketBase from 'pocketbase';
 
 const baseUrl = (() => {
   if (typeof window === 'undefined') return 'http://localhost:8090';
-  const proto = window.location.protocol;
-  const hostname = window.location.hostname;
-  // Always use port 5000 so requests reach Express directly,
-  // bypassing any CDN that strips port and causes 426 errors.
-  const port = window.location.port || '5000';
-  return `${proto}//${hostname}:${port}/pb-api`;
+  // Use the page's actual origin so requests always route through the
+  // same proxy layer (CDN or direct) that served the app itself.
+  return `${window.location.origin}/pb-api`;
 })();
 
 export const pb = new PocketBase(baseUrl);
