@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot, addDoc, runTransaction, doc, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2, QrCode, X } from 'lucide-react';
 
 const MILESTONES = [
   { count: 3,   topN: 4, reward: '喜茶',                  emoji: '🧋' },
@@ -14,9 +14,8 @@ const MILESTONES = [
   { count: 150, topN: 1, reward: '熊喵来了火锅双人餐',      emoji: '🍲' },
 ];
 
-
 type UserStat  = { uid: string; name: string; email: string; count: number };
-type Voucher   = { id: string; milestoneCount: number; url: string; claimedBy: string | null; claimedByEmail: string | null; claimedByName?: string | null; claimedAt?: any };
+type Voucher   = { id: string; milestoneCount: number; url?: string; imageUrl?: string; claimedBy: string | null; claimedByEmail: string | null; claimedByName?: string | null; claimedAt?: any };
 
 export default function Rewards({ user, userData }: { user: any; userData?: any }) {
   const isAdmin = userData?.role === 'admin';
@@ -27,14 +26,16 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
   const [claiming,    setClaiming]    = useState<number | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
 
-  // Admin add-voucher form
-  const [addingFor,  setAddingFor]  = useState<number | null>(null);
-  const [newUrl,     setNewUrl]     = useState('');
-  const [saving,     setSaving]     = useState(false);
+  const [addingFor,   setAddingFor]   = useState<number | null>(null);
+  const [addMode,     setAddMode]     = useState<'url' | 'image'>('url');
+  const [newUrl,      setNewUrl]      = useState('');
+  const [newImage,    setNewImage]    = useState<string | null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [qrViewer,    setQrViewer]    = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showAdmin = isAdmin && !previewMode;
 
-  // --- listen patients ---
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'patients'), (snap) => {
       const map: Record<string, UserStat> = {};
@@ -52,7 +53,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     return () => unsub();
   }, []);
 
-  // --- listen vouchers ---
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'vouchers'), (snap) => {
       setVouchers(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
@@ -60,11 +60,9 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     return () => unsub();
   }, []);
 
-  // --- claim a voucher ---
   const claim = async (milestoneCount: number) => {
     setClaiming(milestoneCount);
     try {
-      // find unclaimed vouchers for this milestone
       const q = query(
         collection(db, 'vouchers'),
         where('milestoneCount', '==', milestoneCount),
@@ -72,7 +70,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
       );
       const snap = await getDocs(q);
       if (snap.empty) { alert('暂无可用兑换券，请联系管理员补充。'); return; }
-
       const target = snap.docs[0];
       await runTransaction(db, async (tx) => {
         const fresh = await tx.get(target.ref);
@@ -92,24 +89,62 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     }
   };
 
-  // --- admin add voucher ---
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const size = 600;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d')!;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, size, size);
+          const scale = Math.min(size / img.width, size / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      setNewImage(compressed);
+    } catch {
+      alert('图片处理失败，请重试。');
+    }
+  };
+
   const saveVoucher = async (milestoneCount: number) => {
-    const raw = newUrl.trim();
-    const urls = raw
-      .split(/(?=https?:\/\/)/)
-      .map(u => u.trim())
-      .filter(u => u.length > 0);
-    if (urls.length === 0) return;
     setSaving(true);
     try {
-      await Promise.all(urls.map(url => addDoc(collection(db, 'vouchers'), {
-        milestoneCount,
-        url,
-        claimedBy:      null,
-        claimedByEmail: null,
-        claimedAt:      null,
-      })));
-      setNewUrl('');
+      if (addMode === 'url') {
+        const raw = newUrl.trim();
+        const urls = raw.split(/(?=https?:\/\/)/).map(u => u.trim()).filter(u => u.length > 0);
+        if (urls.length === 0) return;
+        await Promise.all(urls.map(url => addDoc(collection(db, 'vouchers'), {
+          milestoneCount, url, claimedBy: null, claimedByEmail: null, claimedAt: null,
+        })));
+        setNewUrl('');
+      } else {
+        if (!newImage) return;
+        await addDoc(collection(db, 'vouchers'), {
+          milestoneCount, imageUrl: newImage, claimedBy: null, claimedByEmail: null, claimedAt: null,
+        });
+        setNewImage(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
       setAddingFor(null);
     } finally {
       setSaving(false);
@@ -121,17 +156,44 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     await deleteDoc(doc(db, 'vouchers', id));
   };
 
-  const myVoucher   = (milestoneCount: number) => vouchers.find(v => v.milestoneCount === milestoneCount && v.claimedBy === user.uid);
+  const openForm = (count: number) => {
+    setAddingFor(count);
+    setAddMode('url');
+    setNewUrl('');
+    setNewImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const myVoucher    = (milestoneCount: number) => vouchers.find(v => v.milestoneCount === milestoneCount && v.claimedBy === user.uid);
   const hasUnclaimed = (milestoneCount: number) => vouchers.some(v => v.milestoneCount === milestoneCount && !v.claimedBy);
-  const countFor    = (milestoneCount: number) => ({
+  const countFor     = (milestoneCount: number) => ({
     total:     vouchers.filter(v => v.milestoneCount === milestoneCount).length,
     unclaimed: vouchers.filter(v => v.milestoneCount === milestoneCount && !v.claimedBy).length,
     claimed:   vouchers.filter(v => v.milestoneCount === milestoneCount &&  v.claimedBy).length,
   });
 
-
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* QR code viewer modal */}
+      {qrViewer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setQrViewer(null)}
+        >
+          <div className="relative bg-white rounded-2xl p-5 shadow-2xl max-w-xs w-full mx-4" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setQrViewer(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <p className="text-sm font-medium text-gray-700 mb-3 text-center">扫描二维码兑换</p>
+            <img src={qrViewer} alt="兑换码" className="w-full rounded-lg" />
+            <p className="text-xs text-gray-400 text-center mt-3">点击任意处关闭</p>
+          </div>
+        </div>
+      )}
+
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -189,7 +251,15 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                       领取
                     </button>
                   )}
-                  {mv && (
+                  {mv && mv.imageUrl && (
+                    <button
+                      onClick={() => setQrViewer(mv.imageUrl!)}
+                      className="text-xs bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 hover:bg-green-100"
+                    >
+                      <QrCode className="w-3 h-3" /> 查看二维码
+                    </button>
+                  )}
+                  {mv && mv.url && (
                     <a href={mv.url} target="_blank" rel="noopener noreferrer"
                       className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 hover:bg-blue-100"
                     >
@@ -201,9 +271,9 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   )}
                   {showAdmin && (
                     <button
-                      onClick={() => { setAddingFor(m.count); setNewUrl(''); }}
+                      onClick={() => openForm(m.count)}
                       className="text-blue-500 hover:text-blue-700 shrink-0"
-                      title="添加兑换链接"
+                      title="添加兑换券"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -213,23 +283,61 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
             })}
           </div>
 
-          {/* 管理员添加链接表单 */}
+          {/* 管理员添加表单 */}
           {showAdmin && addingFor !== null && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg space-y-2">
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg space-y-3">
               <p className="text-sm font-medium text-blue-800">
-                添加「{MILESTONES.find(m => m.count === addingFor)?.emoji} {MILESTONES.find(m => m.count === addingFor)?.reward}」兑换链接
+                添加「{MILESTONES.find(m => m.count === addingFor)?.emoji} {MILESTONES.find(m => m.count === addingFor)?.reward}」兑换券
               </p>
-              <textarea
-                value={newUrl}
-                onChange={e => setNewUrl(e.target.value)}
-                placeholder={"粘贴兑换链接（支持多条，每行一个）…"}
-                rows={4}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none font-mono"
-              />
+              {/* 模式切换 */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setAddMode('url'); setNewImage(null); }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${addMode === 'url' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  🔗 粘贴链接
+                </button>
+                <button
+                  onClick={() => { setAddMode('image'); setNewUrl(''); }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${addMode === 'image' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  📷 上传二维码
+                </button>
+              </div>
+
+              {addMode === 'url' ? (
+                <textarea
+                  value={newUrl}
+                  onChange={e => setNewUrl(e.target.value)}
+                  placeholder="粘贴兑换链接（支持多条，每行一个）…"
+                  rows={4}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none font-mono"
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer"
+                  />
+                  {newImage && (
+                    <div className="relative inline-block">
+                      <img src={newImage} alt="预览" className="w-36 h-36 object-contain border rounded-lg bg-white p-1" />
+                      <button
+                        onClick={() => { setNewImage(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                      >×</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button
                   onClick={() => saveVoucher(addingFor)}
-                  disabled={saving || !newUrl.trim()}
+                  disabled={saving || (addMode === 'url' ? !newUrl.trim() : !newImage)}
                   className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
                 >
                   {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} 保存
@@ -244,13 +352,19 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
             </div>
           )}
 
-          {/* 管理员：显示已添加的券 + 删除按钮 */}
+          {/* 管理员：已添加的券列表 */}
           {showAdmin && addingFor !== null && (
             <div className="mt-2 space-y-1">
               {vouchers.filter(v => v.milestoneCount === addingFor).map(v => (
                 <div key={v.id} className="flex items-center gap-2 text-xs px-1">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${v.claimedBy ? 'bg-green-400' : 'bg-gray-300'}`} />
-                  <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
+                  {v.imageUrl ? (
+                    <span className="flex items-center gap-1 text-gray-500 flex-1">
+                      <QrCode className="w-3 h-3" /> 二维码图片
+                    </span>
+                  ) : (
+                    <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
+                  )}
                   <span className="shrink-0 text-gray-400">
                     {v.claimedBy
                       ? `已领 (${v.claimedByName || stats.find(s => s.uid === v.claimedBy)?.name || v.claimedByEmail?.split('@')[0]})`
@@ -264,7 +378,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
             </div>
           )}
         </div>
-
 
         {/* 领取记录 */}
         {vouchers.filter(v => v.claimedBy).length > 0 && (
