@@ -120,7 +120,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isApprovedUser();
+      allow read: if isOwner(userId) || isApprovedUser();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                     ((isOwner(userId) && request.resource.data.role == 'pending') || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
