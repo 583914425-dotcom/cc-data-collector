@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import path from "path";
 import dotenv from "dotenv";
 import fs from "fs";
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { createProxyMiddleware, fixRequestBody } from "http-proxy-middleware";
 import { spawn } from "child_process";
 
 dotenv.config();
@@ -546,6 +546,15 @@ async function startServer() {
   });
 
   // ── PocketBase proxy ────────────────────────────────────────────────────────
+  // Allow CORS for cross-origin requests (e.g. browser served on port 443 CDN,
+  // hitting our Express on port 5000).
+  app.use('/pb-api', (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
+    next();
+  });
   app.use(
     '/pb-api',
     createProxyMiddleware({
@@ -553,6 +562,8 @@ async function startServer() {
       changeOrigin: true,
       pathRewrite: { '^/pb-api': '' },
       on: {
+        // Re-stream the body after express.json() has consumed it
+        proxyReq: fixRequestBody,
         error: (_err, _req, res: any) => {
           res.status(502).json({ error: 'PocketBase not reachable' });
         },
