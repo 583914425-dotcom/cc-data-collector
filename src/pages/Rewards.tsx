@@ -23,15 +23,18 @@ type Voucher   = { id: string; milestoneCount: number; url: string; claimedBy: s
 export default function Rewards({ user, userData }: { user: any; userData?: any }) {
   const isAdmin = userData?.role === 'admin';
 
-  const [stats,    setStats]    = useState<UserStat[]>([]);
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [claiming, setClaiming] = useState<number | null>(null);
+  const [stats,       setStats]       = useState<UserStat[]>([]);
+  const [vouchers,    setVouchers]    = useState<Voucher[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [claiming,    setClaiming]    = useState<number | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Admin add-voucher form
   const [addingFor,  setAddingFor]  = useState<number | null>(null);
   const [newUrl,     setNewUrl]     = useState('');
   const [saving,     setSaving]     = useState(false);
+
+  const showAdmin = isAdmin && !previewMode;
 
   // --- listen patients ---
   useEffect(() => {
@@ -134,6 +137,14 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           </Link>
           <Trophy className="w-6 h-6 text-yellow-500" />
           <h1 className="text-lg font-bold text-gray-900">录入奖励榜</h1>
+          {isAdmin && (
+            <button
+              onClick={() => { setPreviewMode(p => !p); setAddingFor(null); }}
+              className={`ml-auto text-xs px-3 py-1.5 rounded-full border transition-colors ${previewMode ? 'bg-orange-100 text-orange-600 border-orange-300' : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'}`}
+            >
+              {previewMode ? '🙋 当前：用户视角  (点击还原)' : '👁 预览用户视角'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -155,12 +166,12 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   </span>
                   <span className="text-gray-400 shrink-0">前 {m.topN} 名</span>
                   <span className="text-gray-700 font-medium flex-1">{m.reward}</span>
-                  {isAdmin && (
+                  {showAdmin && (
                     <span className="text-xs text-gray-400 shrink-0">
                       剩 {c.unclaimed}/{c.total}
                     </span>
                   )}
-                  {isAdmin && (
+                  {showAdmin && (
                     <button
                       onClick={() => { setAddingFor(m.count); setNewUrl(''); }}
                       className="text-blue-500 hover:text-blue-700 shrink-0"
@@ -175,7 +186,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           </div>
 
           {/* 管理员添加链接表单 */}
-          {isAdmin && addingFor !== null && (
+          {showAdmin && addingFor !== null && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg space-y-2">
               <p className="text-sm font-medium text-blue-800">
                 添加「{MILESTONES.find(m => m.count === addingFor)?.emoji} {MILESTONES.find(m => m.count === addingFor)?.reward}」兑换链接
@@ -206,7 +217,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           )}
 
           {/* 管理员：显示已添加的券 + 删除按钮 */}
-          {isAdmin && addingFor !== null && (
+          {showAdmin && addingFor !== null && (
             <div className="mt-2 space-y-1">
               {vouchers.filter(v => v.milestoneCount === addingFor).map(v => (
                 <div key={v.id} className="flex items-center gap-2 text-xs px-1">
@@ -318,7 +329,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                           )}
 
                           {/* 管理员查看谁领了 */}
-                          {isAdmin && !isMe && (
+                          {showAdmin && !isMe && (
                             <span className="text-xs text-gray-400">
                               {vouchers.find(v => v.milestoneCount === m.count && v.claimedBy === stat.uid)
                                 ? '✓ 已领取'
