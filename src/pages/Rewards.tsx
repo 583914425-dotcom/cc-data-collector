@@ -9,7 +9,7 @@ const MILESTONES = [
   { count: 10,  topN: 3, reward: '李先生牛肉面三件套单人餐', emoji: '🍜' },
   { count: 20,  topN: 3, reward: '肯德基开工吃堡单人餐',    emoji: '🍗' },
   { count: 30,  topN: 2, reward: '喜家德西芹水饺单人餐',    emoji: '🥟' },
-  { count: 50,  topN: 2, reward: '星巴克礼品卡',            emoji: '☕' },
+  { count: 50,  topN: 2, reward: '赛百味金枪鱼双拼三明治',  emoji: '🥖' },
   { count: 100, topN: 1, reward: '安小胖韩国烤肉 2-3 人餐', emoji: '🥩' },
   { count: 150, topN: 1, reward: '熊喵来了火锅双人餐',      emoji: '🍲' },
 ];
