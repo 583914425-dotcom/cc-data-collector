@@ -28,8 +28,8 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
 
   const MILESTONES: { count: number; reward: string }[] = [
     { count: 3, reward: '🧋 喜茶' },
-    { count: 10, reward: '🍗 肯德基单人餐' },
-    { count: 20, reward: '🥟 喜家德饺子' },
+    { count: 10, reward: '🍜 李先生牛肉面' },
+    { count: 20, reward: '🍗 肯德基单人餐' },
     { count: 30, reward: '🍗 KFC套餐' },
     { count: 50, reward: '☕ 星巴克' },
     { count: 100, reward: '🥩 安小胖烤肉' },
