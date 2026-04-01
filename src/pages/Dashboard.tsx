@@ -27,7 +27,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [milestoneAlert, setMilestoneAlert] = useState<{ count: number; reward: string } | null>(null);
 
   const MILESTONES: { count: number; reward: string }[] = [
-    { count: 3, reward: '🧋 喜茶一杯' },
+    { count: 3, reward: '🧋 喜茶' },
     { count: 10, reward: '🍜 李先生牛肉面' },
     { count: 20, reward: '🥟 喜家德饺子' },
     { count: 30, reward: '🍗 KFC套餐' },
