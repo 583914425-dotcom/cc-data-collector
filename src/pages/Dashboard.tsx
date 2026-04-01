@@ -184,10 +184,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   }, []);
 
   useEffect(() => {
-    if (!user?.uid || patients.length === 0) {
-      console.log('[Milestone] skip: uid=', user?.uid, 'patients=', patients.length);
-      return;
-    }
+    if (!user?.uid || patients.length === 0) return;
     const myCount = patients.filter(p => p.authorUid === user.uid).length;
     const celebratedKey = `milestone_celebrated_${user.uid}`;
     const prevCountKey = `milestone_prevcount_${user.uid}`;
@@ -198,11 +195,9 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
     }
     const rawPrev = localStorage.getItem(prevCountKey);
     const prevCount = rawPrev === null ? Math.max(0, myCount - 1) : parseInt(rawPrev, 10);
-    console.log('[Milestone] myCount=', myCount, 'prevCount=', prevCount, 'lastCelebrated=', lastCelebrated);
     localStorage.setItem(prevCountKey, String(myCount));
     if (myCount <= prevCount) {
       const stuckHit = MILESTONES.find(m => m.count === myCount && m.count > lastCelebrated);
-      console.log('[Milestone] stuck check → stuckHit=', stuckHit);
       if (stuckHit) {
         localStorage.setItem(celebratedKey, String(stuckHit.count));
         setMilestoneAlert(stuckHit);
@@ -211,7 +206,6 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
       return;
     }
     const hit = [...MILESTONES].reverse().find(m => myCount >= m.count && prevCount < m.count && m.count > lastCelebrated);
-    console.log('[Milestone] crossing check → hit=', hit);
     if (hit) {
       localStorage.setItem(celebratedKey, String(hit.count));
       setMilestoneAlert(hit);
@@ -373,22 +367,13 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
           <h1 className="text-xl font-bold text-gray-900">预测模型数据采集系统</h1>
           <div className="flex items-center gap-4">
             {userData?.role === 'admin' && (
-              <>
-                <Link
-                  to="/users"
-                  className="text-gray-500 hover:text-purple-600 flex items-center gap-1 text-sm transition-colors"
-                  title="用户权限管理"
-                >
-                  <Users className="w-4 h-4" /> 用户管理
-                </Link>
-                <button
-                  onClick={() => { setMilestoneAlert({ count: 3, reward: '🧋 喜茶一杯' }); playVictorySound(); }}
-                  className="text-xs text-gray-300 hover:text-orange-400 transition-colors"
-                  title="测试里程碑弹窗"
-                >
-                  🎉测试
-                </button>
-              </>
+              <Link
+                to="/users"
+                className="text-gray-500 hover:text-purple-600 flex items-center gap-1 text-sm transition-colors"
+                title="用户权限管理"
+              >
+                <Users className="w-4 h-4" /> 用户管理
+              </Link>
             )}
             <Link
               to="/rewards"
