@@ -94,7 +94,11 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
   // --- admin add voucher ---
   const saveVoucher = async (milestoneCount: number) => {
-    const urls = newUrl.split(/\s+/).map(u => u.trim()).filter(u => u.length > 0);
+    const raw = newUrl.trim();
+    const urls = raw
+      .split(/(?=https?:\/\/)/)
+      .map(u => u.trim())
+      .filter(u => u.length > 0);
     if (urls.length === 0) return;
     setSaving(true);
     try {
