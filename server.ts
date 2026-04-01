@@ -547,11 +547,11 @@ async function startServer() {
 
   // ── PocketBase proxy ────────────────────────────────────────────────────────
   app.use(
-    '/pocketbase',
+    '/pb-api',
     createProxyMiddleware({
       target: 'http://localhost:8090',
       changeOrigin: true,
-      pathRewrite: { '^/pocketbase': '' },
+      pathRewrite: { '^/pb-api': '' },
       on: {
         error: (_err, _req, res: any) => {
           res.status(502).json({ error: 'PocketBase not reachable' });

@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase';
 
 const baseUrl =
   typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.host}/pocketbase`
+    ? `${window.location.protocol}//${window.location.hostname}/pb-api`
     : 'http://localhost:8090';
 
 export const pb = new PocketBase(baseUrl);

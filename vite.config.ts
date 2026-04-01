@@ -22,9 +22,9 @@ export default defineConfig(({mode}) => {
       allowedHosts: true,
       host: '0.0.0.0',
       proxy: {
-        '/pocketbase': {
+        '/pb-api': {
           target: 'http://localhost:8090',
-          rewrite: (path: string) => path.replace(/^\/pocketbase/, ''),
+          rewrite: (path: string) => path.replace(/^\/pb-api/, ''),
           changeOrigin: true,
           ws: true,
         },
