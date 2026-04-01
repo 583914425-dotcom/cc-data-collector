@@ -30,8 +30,8 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
     { count: 3, reward: '🧋 喜茶' },
     { count: 10, reward: '🍜 李先生牛肉面单人餐' },
     { count: 20, reward: '🍗 肯德基开工吃堡单人餐' },
-    { count: 30, reward: '🥟 喜家德西芹水饺单人餐' },
-    { count: 50, reward: '🥖 赛百味金枪鱼双拼三明治' },
+    { count: 30, reward: '🥖 赛百味金枪鱼双拼三明治' },
+    { count: 50, reward: '🥟 喜家德西芹水饺单人餐' },
     { count: 100, reward: '🍲 熊喵来了春季宴请火锅双人餐' },
     { count: 150, reward: '🥩 安小胖韩国烤肉2-3人餐' },
   ];
