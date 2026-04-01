@@ -241,11 +241,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                     <span className="ml-1.5 text-xs text-orange-500 font-normal">限{m.topN}份</span>
                     {reached && <span className="ml-1 text-green-600 text-xs">✓ 已达成</span>}
                   </span>
-                  {c.total > 0 && (
-                    <span className={`text-xs shrink-0 ${c.unclaimed === 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                      剩 {c.unclaimed}/{c.total}
-                    </span>
-                  )}
                   {canClaim && (
                     <button
                       onClick={() => claim(m.count)}
