@@ -403,7 +403,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                     <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-400 rounded-full border border-white" />
                   )}
                 </div>
-                <span className="truncate text-sm flex-1">{u.name || u.email.split('@')[0]}</span>
+                <span className="truncate text-sm flex-1">{u.name || (u.email || '').split('@')[0]}</span>
                 {unreadCounts[u.email] > 0 && (
                   <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {unreadCounts[u.email]}
@@ -450,7 +450,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   <Avatar email={msg.from} displayName={senderInfo?.name} avatarUrl={senderInfo?.avatarUrl} size="sm" />
                   <div className={`max-w-[70%] group flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-gray-400 mb-1">
-                      {senderInfo?.name || msg.from.split('@')[0]}
+                      {senderInfo?.name || (msg.from || '').split('@')[0]}
                       {msg.createdAt && <span className="ml-1">{new Date(msg.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>}
                     </span>
                     {msg.recalled ? (

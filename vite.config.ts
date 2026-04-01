@@ -29,6 +29,9 @@ export default defineConfig(({mode}) => {
           '**/pb_migrations/**',
           '**/node_modules/**',
           '**/dist/**',
+          '**/.replit',
+          '**/replit.md',
+          '**/*.md',
         ],
       },
       proxy: {

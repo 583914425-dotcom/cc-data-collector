@@ -145,7 +145,7 @@ export default function UserManagement({ user }: { user: any }) {
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{u.name || u.email.split('@')[0]}</div>
+                      <div className="text-sm font-medium text-gray-900">{u.name || (u.email || '').split('@')[0]}</div>
                       <div className="text-xs text-gray-400">{u.email}</div>
                     </td>
                     <td className="px-6 py-4">
