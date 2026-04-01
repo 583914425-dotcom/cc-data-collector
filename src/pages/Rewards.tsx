@@ -150,16 +150,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
 
-        {/* 自助领取说明 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
-          <span className="text-2xl shrink-0">🎁</span>
-          <div className="text-sm text-amber-800 space-y-1">
-            <p className="font-semibold">奖励自助领取说明</p>
-            <p>录入病例达到对应数量后，下方排名卡片里会自动出现 <span className="font-bold">「领取兑换券」</span> 按钮，点击即可获得兑换链接，<span className="font-bold">无需联系管理员</span>。</p>
-            <p className="text-amber-600">例：录入满 3 例 → 自动解锁喜茶饮品券，点按钮领走就行 🧋</p>
-          </div>
-        </div>
-
         {/* 奖励规则 */}
         <div className="bg-white rounded-xl shadow-sm p-4">
           <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
