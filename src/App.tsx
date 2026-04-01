@@ -4,7 +4,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { setOnline, setOffline } from './presence';
+import { setOnline, setOffline, startHeartbeat } from './presence';
 import Dashboard from './pages/Dashboard';
 import PatientForm from './pages/PatientForm';
 import UserManagement from './pages/UserManagement';
@@ -56,11 +56,13 @@ export default function App() {
     if (!user?.uid || !user?.email) return;
 
     setOnline(user.uid, user.email);
+    const stopHeartbeat = startHeartbeat(user.uid);
 
     const handleUnload = () => setOffline(user.uid);
     window.addEventListener('beforeunload', handleUnload);
 
     return () => {
+      stopHeartbeat();
       window.removeEventListener('beforeunload', handleUnload);
       setOffline(user.uid);
     };

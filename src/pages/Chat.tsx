@@ -89,7 +89,7 @@ function playNotificationSound() {
 }
 
 export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: () => void, onLeave?: () => void }) {
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<{email: string, lastSeen: number}[]>([]);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [messages, setMessages] = useState<{id: string, from: string, message?: string, to?: string, image?: string, createdAt?: any, recalled?: boolean}[]>([]);
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
@@ -211,8 +211,15 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'presence'), (snapshot) => {
-      const emails = snapshot.docs.map(doc => doc.data().email as string);
-      setOnlineUsers(emails);
+      const now = Date.now();
+      const users = snapshot.docs
+        .map(d => {
+          const data = d.data();
+          const lastSeen = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : now;
+          return { email: data.email as string, lastSeen };
+        })
+        .filter(u => now - u.lastSeen < 2 * 60 * 1000);
+      setOnlineUsers(users);
     });
     return () => unsubscribe();
   }, []);
@@ -327,7 +334,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
               )}
             </li>
             {allUsers.map(u => {
-              const isOnline = onlineUsers.includes(u.email);
+              const isOnline = onlineUsers.some(o => o.email === u.email);
               const unread = unreadCounts[u.email] || 0;
               return (
                 <li 
