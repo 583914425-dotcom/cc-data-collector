@@ -64,7 +64,7 @@ export default function Rewards({ user }: { user: any }) {
         {/* 奖励说明 */}
         <div className="bg-white rounded-xl shadow-sm p-4">
           <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <Gift className="w-5 h-5 text-pink-500" /> 奖励规则（分批发放）
+            <Gift className="w-5 h-5 text-pink-500" /> 奖励规则
           </h2>
           <div className="space-y-2">
             {MILESTONES.map(m => (
