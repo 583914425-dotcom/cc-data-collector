@@ -6,7 +6,7 @@ import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2, QrCode, X
 
 const MILESTONES = [
   { count: 3,   topN: 4, reward: '喜茶',                  emoji: '🧋' },
-  { count: 10,  topN: 3, reward: '李先生牛肉面三件套单人餐', emoji: '🍜' },
+  { count: 10,  topN: 3, reward: '李先生牛肉面单人餐',       emoji: '🍜' },
   { count: 20,  topN: 3, reward: '肯德基开工吃堡单人餐',    emoji: '🍗' },
   { count: 30,  topN: 2, reward: '喜家德西芹水饺单人餐',    emoji: '🥟' },
   { count: 50,  topN: 2, reward: '赛百味金枪鱼双拼三明治',  emoji: '🥖' },
