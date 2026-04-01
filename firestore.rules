@@ -164,5 +164,16 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isOwner(userId);
     }
 
+    match /vouchers/{voucherId} {
+      allow read: if isApprovedUser();
+      allow create: if isAdmin();
+      allow update: if isApprovedUser() &&
+                    resource.data.claimedBy == null &&
+                    request.resource.data.claimedBy == request.auth.uid &&
+                    request.resource.data.milestoneCount == resource.data.milestoneCount &&
+                    request.resource.data.url == resource.data.url;
+      allow delete: if isAdmin();
+    }
+
   }
 }

@@ -267,7 +267,7 @@ export default function App() {
         <Route path="/patient/:id" element={<PatientForm user={user} />} />
         <Route path="/users" element={userData?.role === 'admin' ? <UserManagement user={user} /> : <Navigate to="/" replace />} />
         <Route path="/chat" element={<Chat user={user} onEnter={clearChatUnread} onLeave={onChatLeave} />} />
-        <Route path="/rewards" element={<Rewards user={user} />} />
+        <Route path="/rewards" element={<Rewards user={user} userData={userData} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
