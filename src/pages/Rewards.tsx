@@ -55,7 +55,7 @@ export default function Rewards({ user }: { user: any }) {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <Trophy className="w-6 h-6 text-yellow-500" />
-          <h1 className="text-lg font-bold text-gray-900">录入排行榜</h1>
+          <h1 className="text-lg font-bold text-gray-900">录入奖励榜</h1>
         </div>
       </header>
 
