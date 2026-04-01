@@ -3,7 +3,7 @@ import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } fro
 import { db, auth } from '../firebase';
 import { Patient } from '../types';
 import { Link } from 'react-router-dom';
-import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil } from 'lucide-react';
+import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil, Trophy } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
@@ -315,6 +315,13 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
                 <Users className="w-4 h-4" /> 用户管理
               </Link>
             )}
+            <Link
+              to="/rewards"
+              className="text-gray-500 hover:text-yellow-600 flex items-center gap-1 text-sm transition-colors"
+              title="录入排行榜与奖励"
+            >
+              <Trophy className="w-4 h-4" /> 奖励榜
+            </Link>
             <Link
               to="/chat"
               className="text-gray-500 hover:text-green-600 flex items-center gap-1 text-sm transition-colors relative"

@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import PatientForm from './pages/PatientForm';
 import UserManagement from './pages/UserManagement';
 import Chat from './pages/Chat';
+import Rewards from './pages/Rewards';
 import { Loader2, LogIn, UserPlus, Chrome } from 'lucide-react';
 
 // Apple tri-tone: C6 → E6 → G6
@@ -266,6 +267,7 @@ export default function App() {
         <Route path="/patient/:id" element={<PatientForm user={user} />} />
         <Route path="/users" element={userData?.role === 'admin' ? <UserManagement user={user} /> : <Navigate to="/" replace />} />
         <Route path="/chat" element={<Chat user={user} onEnter={clearChatUnread} onLeave={onChatLeave} />} />
+        <Route path="/rewards" element={<Rewards user={user} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
