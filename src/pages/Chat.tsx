@@ -54,20 +54,21 @@ const AVATAR_COLORS = [
   'bg-orange-500', 'bg-cyan-500',
 ];
 
-function getAvatarColor(email: string): string {
+function getAvatarColor(email: string | undefined): string {
+  const str = email || '';
   let hash = 0;
-  for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-function getInitial(displayName: string, email: string): string {
-  const name = displayName || email;
+function getInitial(displayName: string | undefined, email: string | undefined): string {
+  const name = displayName || email || '?';
   return name.charAt(0).toUpperCase();
 }
 
-function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email: string, displayName?: string, avatarUrl?: string, size?: 'sm' | 'md' }) {
+function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email?: string, displayName?: string, avatarUrl?: string, size?: 'sm' | 'md' }) {
   const color = getAvatarColor(email);
-  const initial = getInitial(displayName || '', email);
+  const initial = getInitial(displayName, email);
   const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-sm';
   if (avatarUrl) {
     return (
