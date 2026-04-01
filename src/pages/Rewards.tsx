@@ -14,8 +14,6 @@ const MILESTONES = [
   { count: 150, topN: 1, reward: '熊喵来了火锅双人餐',      emoji: '🍲' },
 ];
 
-const RANK_COLORS = ['text-yellow-500', 'text-gray-400', 'text-amber-600'];
-const RANK_BG    = ['bg-yellow-50 border-yellow-200', 'bg-gray-50 border-gray-200', 'bg-amber-50 border-amber-200'];
 
 type UserStat  = { uid: string; name: string; email: string; count: number };
 type Voucher   = { id: string; milestoneCount: number; url: string; claimedBy: string | null; claimedByEmail: string | null };
@@ -129,8 +127,6 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     claimed:   vouchers.filter(v => v.milestoneCount === milestoneCount &&  v.claimedBy).length,
   });
 
-  const earned = (stat: UserStat, rank: number) => MILESTONES.filter(m => stat.count >= m.count && rank < m.topN);
-  const next   = (stat: UserStat, rank: number) => MILESTONES.find(m => !(stat.count >= m.count && rank < m.topN) && rank < m.topN);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -251,120 +247,93 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           )}
         </div>
 
-        {/* 排行榜 */}
-        <div className="space-y-3">
-          <h2 className="font-semibold text-gray-800 px-1">当前排名</h2>
+        {/* 我的进度 */}
+        {(() => {
+          const myStat   = stats.find(s => s.uid === user?.uid);
+          const myCount  = myStat?.count ?? 0;
+          const nextMile = MILESTONES.find(m => myCount < m.count);
+          const earnedList = MILESTONES.filter(m => myCount >= m.count);
 
-          {loading && <div className="text-center py-12 text-gray-400">加载中…</div>}
-          {!loading && stats.length === 0 && <div className="text-center py-12 text-gray-400">还没有任何录入记录</div>}
+          return (
+            <div className="bg-white rounded-xl shadow-sm border-2 border-blue-300 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-2xl">👤</span>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">{myStat?.name ?? '我'}</div>
+                  <div className="text-xs text-gray-400">{myStat?.email ?? user?.email}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-blue-600">{myCount}</div>
+                  <div className="text-xs text-gray-400">例</div>
+                </div>
+              </div>
 
-          {stats.map((stat, idx) => {
-            const isMe       = stat.uid === user?.uid;
-            const earnedList = earned(stat, idx);
-            const nextMile   = next(stat, idx);
+              {loading && <div className="text-gray-400 text-sm">加载中…</div>}
 
-            return (
-              <div
-                key={stat.uid}
-                className={`bg-white rounded-xl shadow-sm border p-4 ${isMe ? 'ring-2 ring-blue-400' : ''} ${idx < 3 ? RANK_BG[idx] : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`text-2xl font-extrabold w-10 text-center ${idx < 3 ? RANK_COLORS[idx] : 'text-gray-400'}`}>
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+              {/* 进度条 */}
+              {nextMile && (
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>距下一奖励：{nextMile.emoji} {nextMile.reward}</span>
+                    <span>{myCount}/{nextMile.count}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900 flex items-center gap-1">
-                      {stat.name}
-                      {isMe && <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">我</span>}
-                    </div>
-                    <div className="text-xs text-gray-400 truncate">{stat.email}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">{stat.count}</div>
-                    <div className="text-xs text-gray-400">例</div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (myCount / nextMile.count) * 100)}%` }}
+                    />
                   </div>
                 </div>
+              )}
 
-                {/* 进度条 */}
-                {nextMile && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>距下一奖励：{nextMile.emoji} {nextMile.reward}</span>
-                      <span>{stat.count}/{nextMile.count}</span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (stat.count / nextMile.count) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+              {/* 已解锁的奖励 */}
+              {earnedList.length > 0 && (
+                <div className="space-y-1.5">
+                  {earnedList.map(m => {
+                    const mv        = myVoucher(m.count);
+                    const canClaim  = !mv && hasUnclaimed(m.count);
+                    const isClaiming = claiming === m.count;
+                    return (
+                      <div key={m.count} className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
+                          ✓ {m.emoji} {m.reward}
+                        </span>
+                        {canClaim && (
+                          <button
+                            onClick={() => claim(m.count)}
+                            disabled={isClaiming}
+                            className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-0.5 rounded-full flex items-center gap-1 disabled:opacity-60"
+                          >
+                            {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                            领取兑换券
+                          </button>
+                        )}
+                        {mv && (
+                          <a href={mv.url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-0.5 rounded-full flex items-center gap-1 hover:bg-blue-100"
+                          >
+                            <ExternalLink className="w-3 h-3" /> 点击兑换
+                          </a>
+                        )}
+                        {!mv && !hasUnclaimed(m.count) && (
+                          <span className="text-xs text-gray-400">兑换券待补充</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                {/* 已获奖励 + 领取按钮（仅本人可见） */}
-                {earnedList.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    {earnedList.map(m => {
-                      const mv = myVoucher(m.count);
-                      const canClaim = isMe && !mv && hasUnclaimed(m.count);
-                      const isClaiming = claiming === m.count;
+              {!nextMile && earnedList.length > 0 && (
+                <div className="mt-2 text-xs text-center text-purple-600 font-medium">🎉 所有奖励已全部达成！</div>
+              )}
 
-                      return (
-                        <div key={m.count} className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
-                            ✓ {m.emoji} {m.reward}
-                          </span>
-
-                          {/* 本人且有未领取券 */}
-                          {canClaim && (
-                            <button
-                              onClick={() => claim(m.count)}
-                              disabled={isClaiming}
-                              className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-0.5 rounded-full flex items-center gap-1 disabled:opacity-60"
-                            >
-                              {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                              领取兑换券
-                            </button>
-                          )}
-
-                          {/* 本人已领取 — 显示链接 */}
-                          {isMe && mv && (
-                            <a
-                              href={mv.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-0.5 rounded-full flex items-center gap-1 hover:bg-blue-100"
-                            >
-                              <ExternalLink className="w-3 h-3" /> 点击兑换
-                            </a>
-                          )}
-
-                          {/* 本人且没券可领（已被领完） */}
-                          {isMe && !mv && !hasUnclaimed(m.count) && (
-                            <span className="text-xs text-gray-400">兑换券待补充</span>
-                          )}
-
-                          {/* 所有人都能看别人有没有领 */}
-                          {!isMe && (
-                            <span className="text-xs text-gray-400">
-                              {vouchers.find(v => v.milestoneCount === m.count && v.claimedBy === stat.uid)
-                                ? '✓ 已领取'
-                                : '未领取'}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {!nextMile && earnedList.length > 0 && (
-                  <div className="mt-2 text-xs text-center text-purple-600 font-medium">🎉 所有奖励已全部达成！</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              {myCount === 0 && !loading && (
+                <div className="text-sm text-gray-400 text-center py-2">还没有录入记录，快去录入第一例吧！</div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 领取记录 */}
         {vouchers.filter(v => v.claimedBy).length > 0 && (
