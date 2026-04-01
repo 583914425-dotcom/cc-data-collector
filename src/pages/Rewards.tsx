@@ -16,7 +16,7 @@ const MILESTONES = [
 
 
 type UserStat  = { uid: string; name: string; email: string; count: number };
-type Voucher   = { id: string; milestoneCount: number; url: string; claimedBy: string | null; claimedByEmail: string | null };
+type Voucher   = { id: string; milestoneCount: number; url: string; claimedBy: string | null; claimedByEmail: string | null; claimedByName?: string | null; claimedAt?: any };
 
 export default function Rewards({ user, userData }: { user: any; userData?: any }) {
   const isAdmin = userData?.role === 'admin';
@@ -77,9 +77,11 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
       await runTransaction(db, async (tx) => {
         const fresh = await tx.get(target.ref);
         if (fresh.data()?.claimedBy) throw new Error('already_claimed');
+        const myName = stats.find(s => s.uid === user.uid)?.name ?? user.email?.split('@')[0] ?? '';
         tx.update(target.ref, {
           claimedBy:      user.uid,
           claimedByEmail: user.email,
+          claimedByName:  myName,
           claimedAt:      serverTimestamp(),
         });
       });
@@ -225,7 +227,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
                   <span className="shrink-0 text-gray-400">
                     {v.claimedBy
-                      ? `已领 (${stats.find(s => s.uid === v.claimedBy)?.name ?? v.claimedByEmail?.split('@')[0]})`
+                      ? `已领 (${v.claimedByName || stats.find(s => s.uid === v.claimedBy)?.name || v.claimedByEmail?.split('@')[0]})`
                       : '未领'}
                   </span>
                   <button onClick={() => deleteVoucher(v.id)} className="text-red-400 hover:text-red-600 shrink-0">
@@ -259,7 +261,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                       <span className="text-xl w-8 text-center">{m?.emoji ?? '🎁'}</span>
                       <span className="text-gray-700 font-medium flex-1">{m?.reward ?? '奖励'}</span>
                       <span className="text-gray-500 text-xs">
-                        {stats.find(s => s.uid === v.claimedBy)?.name ?? v.claimedByEmail?.split('@')[0]}
+                        {v.claimedByName || stats.find(s => s.uid === v.claimedBy)?.name || v.claimedByEmail?.split('@')[0]}
                       </span>
                       <span className="text-green-500 text-xs font-medium">✓ 已领取</span>
                     </div>
