@@ -191,7 +191,11 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
     const myCount = patients.filter(p => p.authorUid === user.uid).length;
     const celebratedKey = `milestone_celebrated_${user.uid}`;
     const prevCountKey = `milestone_prevcount_${user.uid}`;
-    const lastCelebrated = parseInt(localStorage.getItem(celebratedKey) || '0', 10);
+    let lastCelebrated = parseInt(localStorage.getItem(celebratedKey) || '0', 10);
+    if (lastCelebrated > myCount) {
+      lastCelebrated = MILESTONES.filter(m => m.count < myCount).reduce((max, m) => Math.max(max, m.count), 0);
+      localStorage.setItem(celebratedKey, String(lastCelebrated));
+    }
     const rawPrev = localStorage.getItem(prevCountKey);
     const prevCount = rawPrev === null ? Math.max(0, myCount - 1) : parseInt(rawPrev, 10);
     console.log('[Milestone] myCount=', myCount, 'prevCount=', prevCount, 'lastCelebrated=', lastCelebrated);
