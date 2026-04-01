@@ -17,6 +17,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "PocketBase"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -29,9 +33,24 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "PocketBase"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./bin/pocketbase serve --http=0.0.0.0:8090 --dir=./pb_data"
+
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[[ports]]
+localPort = 8090
+externalPort = 3000
 
 [[ports]]
 localPort = 24678

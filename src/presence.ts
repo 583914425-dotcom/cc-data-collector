@@ -1,24 +1,26 @@
-import { doc, setDoc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { pb } from './lib/pb';
 
 export async function setOnline(uid: string, email: string) {
-  await setDoc(doc(db, 'presence', uid), {
-    email,
-    online: true,
-    lastSeen: serverTimestamp(),
-  });
+  const now = new Date().toISOString();
+  try {
+    await pb.collection('presence').update(uid, { email, lastSeen: now });
+  } catch {
+    try {
+      await pb.collection('presence').create({ id: uid, email, lastSeen: now });
+    } catch (_) {}
+  }
 }
 
 export async function setOffline(uid: string) {
-  await deleteDoc(doc(db, 'presence', uid));
+  try {
+    await pb.collection('presence').delete(uid);
+  } catch (_) {}
 }
 
 export function startHeartbeat(uid: string): () => void {
   const tick = async () => {
     try {
-      await updateDoc(doc(db, 'presence', uid), {
-        lastSeen: serverTimestamp(),
-      });
+      await pb.collection('presence').update(uid, { lastSeen: new Date().toISOString() });
     } catch (_) {}
   };
   const interval = setInterval(tick, 60_000);

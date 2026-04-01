@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, ArrowLeft, User, Trash2, Undo2, Eraser } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { pb } from '../lib/pb';
 
-// Apple tri-tone style note
 function playTriTone(ctx: AudioContext, freq: number, t: number, vol: number) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  // Add subtle overtone for bell-like quality
   const osc2 = ctx.createOscillator();
   const gain2 = ctx.createGain();
   osc.connect(gain); gain.connect(ctx.destination);
   osc2.connect(gain2); gain2.connect(ctx.destination);
   osc.type = 'sine'; osc.frequency.value = freq;
-  osc2.type = 'sine'; osc2.frequency.value = freq * 2.756; // inharmonic overtone
+  osc2.type = 'sine'; osc2.frequency.value = freq * 2.756;
   gain.gain.setValueAtTime(0, t);
   gain.gain.linearRampToValueAtTime(vol, t + 0.005);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
@@ -25,20 +22,29 @@ function playTriTone(ctx: AudioContext, freq: number, t: number, vol: number) {
   osc2.start(t); osc2.stop(t + 0.15);
 }
 
-// Apple tri-tone send: two ascending notes (lighter)
 function playMessageSent() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    playTriTone(ctx, 1046.5, ctx.currentTime, 0.30);       // C6
-    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.30); // E6
+    playTriTone(ctx, 1046.5, ctx.currentTime, 0.30);
+    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.30);
     setTimeout(() => ctx.close().catch(() => {}), 1000);
+  } catch (_) {}
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    playTriTone(ctx, 1046.5, ctx.currentTime, 0.38);
+    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.38);
+    playTriTone(ctx, 1567.98, ctx.currentTime + 0.22, 0.38);
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
   } catch (_) {}
 }
 
 interface AppUser {
   id: string;
   email: string;
-  displayName?: string;
+  name?: string;
   avatarUrl?: string;
 }
 
@@ -77,17 +83,6 @@ function Avatar({ email, displayName, avatarUrl, size = 'md' }: { email: string,
   );
 }
 
-// Apple tri-tone receive: three ascending notes C6 → E6 → G6
-function playNotificationSound() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    playTriTone(ctx, 1046.5, ctx.currentTime, 0.38);        // C6
-    playTriTone(ctx, 1318.5, ctx.currentTime + 0.11, 0.38); // E6
-    playTriTone(ctx, 1567.98, ctx.currentTime + 0.22, 0.38); // G6
-    setTimeout(() => ctx.close().catch(() => {}), 1200);
-  } catch (_) {}
-}
-
 export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: () => void, onLeave?: () => void }) {
   const [onlineUsers, setOnlineUsers] = useState<{email: string, lastSeen: number}[]>([]);
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
@@ -119,11 +114,11 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   }, [targetUser]);
 
   const EMOJIS = [
-    { label: '常用', list: ['😊','😂','🤣','❤️','😍','🥰','😘','😁','😄','😃','😀','🙂','😉','😋','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','💀','☠️','👻','👽','🤖','💩','😺','😸','😹','😻','😼','😽','🙀','😿','😾'] },
-    { label: '手势', list: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦵','🦶','👂','🦻','👃','👀','👁️','👅','👄','💋','🫀','🫁','🧠','🦷','🦴'] },
-    { label: '动物', list: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦏','🦛','🐪','🦒','🦘','🦬','🐃','🐂','🦙','🐑','🐏','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🐓','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'] },
-    { label: '食物', list: ['🍎','🍊','🍋','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑','🍆','🥦','🥬','🥒','🫑','🌽','🥕','🫛','🧅','🥔','🍠','🫚','🧄','🧅','🥜','🫘','🌰','🍞','🥐','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥙','🥪','🌮','🌯','🫔','🥗','🥘','🫕','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍘','🍥','🥮','🍢','🧆','🥙','🧆','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🫘','🍯','🧃','🥤','🧋','☕','🍵','🫖','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾'] },
-    { label: '符号', list: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☯️','🕉️','✡️','🔯','🛐','⛎','♈','💯','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🔣','🔤','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🔕','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🆚','💬','💭','🗯️','💤','🔈','🔉','🔊','📢','📣','🔔','🔕','🎵','🎶','💹','🗺️','🌐','🗾','🧭','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏞️','🏟️','🏛️','🏗️','🏘️','🏚️','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♾️','🌌','🌠','🎇','🎆','🌈','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','🌪️','🌫️','🌊','🌀','🌈','🌂','☂️','☔','⛱️','⚡','❄️','🔥','💧','🌊'] },
+    { label: '常用', list: ['😊','😂','🤣','❤️','😍','🥰','😘','😁','😄','😃','😀','🙂','😉','😋','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','💀','☠️','👻','👽','🤖','💩'] },
+    { label: '手势', list: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏'] },
+    { label: '动物', list: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐝','🐛','🦋','🐌'] },
+    { label: '食物', list: ['🍎','🍊','🍋','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑','🍆','🥦','🥬','🥒','🫑','🌽','🥕','🧄','🥜','🍞','🥐','🧀','🥚','🍳','🥞','🍗','🍖','🌭','🍔','🍟','🍕','🥙','🌮','🌯','🍝','🍜','🍲','🍣','🍱','🥟','🍤','🍙','🍘','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🍯','☕','🍵','🍺','🥂','🍷','🥃'] },
+    { label: '符号', list: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','💕','💞','💓','💗','💖','💘','💝','💯','🆗','🆙','🆒','🆕','🆓','‼️','⁉️','❗','❕','❓','❔','🔔','🎵','🎶','⚠️','✅','❌','⭕','🔥','💧','⭐','🌟','✨'] },
   ];
 
   useEffect(() => {
@@ -150,78 +145,123 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
     }, 0);
   };
 
+  // Load all users + subscribe
   useEffect(() => {
-    const q = query(collection(db, 'users'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: AppUser[] = [];
-      snapshot.forEach((doc) => {
-        const userData = doc.data();
-        data.push({ id: doc.id, email: userData.email, displayName: userData.displayName || '', avatarUrl: userData.avatarUrl || '' } as AppUser);
-      });
-      setAllUsers(data);
-    }, (error) => {
-      console.error('Error fetching users:', error);
-    });
-    return () => unsubscribe();
+    let unsubFn: (() => void) | null = null;
+
+    const fetchUsers = async () => {
+      try {
+        const records = await pb.collection('users').getFullList();
+        setAllUsers(records.map((r: any) => ({
+          id: r.id,
+          email: r.email,
+          name: r.name || '',
+          avatarUrl: r.avatarUrl || '',
+        })));
+      } catch (_) {}
+    };
+
+    fetchUsers();
+    pb.collection('users').subscribe('*', fetchUsers).then(fn => { unsubFn = fn; }).catch(() => {});
+    return () => {
+      if (unsubFn) unsubFn();
+      else pb.collection('users').unsubscribe('*').catch(() => {});
+    };
   }, []);
 
+  // Load messages + subscribe
   useEffect(() => {
-    const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(d => ({
-        id: d.id,
-        from: d.data().from,
-        message: d.data().message,
-        to: d.data().to,
-        image: d.data().image,
-        createdAt: d.data().createdAt,
-        recalled: d.data().recalled || false,
-      }));
+    let unsubFn: (() => void) | null = null;
 
-      const prev = prevMessagesRef.current;
-      if (prev.length > 0 && data.length > prev.length) {
-        const newMsgs = data.slice(prev.length);
-        newMsgs.forEach(msg => {
-          if (msg.from === user.email) return;
-          if (msg.recalled) return;
+    const fetchMessages = async () => {
+      try {
+        const records = await pb.collection('chat_messages').getFullList({ sort: 'created' });
+        const data = records.map((r: any) => ({
+          id: r.id,
+          from: r.from,
+          message: r.message,
+          to: r.to,
+          image: r.image,
+          createdAt: r.created,
+          recalled: r.recalled || false,
+        }));
+        prevMessagesRef.current = data;
+        setMessages(data);
+      } catch (_) {}
+    };
 
+    fetchMessages();
+
+    pb.collection('chat_messages').subscribe('*', (e) => {
+      const msg = e.record;
+      if (e.action === 'create') {
+        const newMsg = {
+          id: msg.id,
+          from: msg.from,
+          message: msg.message,
+          to: msg.to,
+          image: msg.image,
+          createdAt: msg.created,
+          recalled: msg.recalled || false,
+        };
+
+        // Notification logic
+        if (msg.from !== user.email && !msg.recalled) {
           const isPublic = msg.to === 'all' || !msg.to;
           const isPrivateToMe = msg.to === user.email;
-          if (!isPublic && !isPrivateToMe) return;
-
-          const conversationKey = isPublic ? '公共频道' : msg.from;
-          const currentTarget = targetUserRef.current;
-
-          playNotificationSound();
-          if (currentTarget !== conversationKey) {
-            setUnreadCounts(prev => ({
-              ...prev,
-              [conversationKey]: (prev[conversationKey] || 0) + 1
-            }));
+          if (isPublic || isPrivateToMe) {
+            const conversationKey = isPublic ? '公共频道' : msg.from;
+            const currentTarget = targetUserRef.current;
+            playNotificationSound();
+            if (currentTarget !== conversationKey) {
+              setUnreadCounts(prev => ({
+                ...prev,
+                [conversationKey]: (prev[conversationKey] || 0) + 1,
+              }));
+            }
           }
-        });
+        }
+
+        setMessages(prev => [...prev, newMsg]);
+      } else if (e.action === 'update') {
+        setMessages(prev => prev.map(m => m.id === msg.id ? {
+          ...m,
+          message: msg.message,
+          image: msg.image,
+          recalled: msg.recalled || false,
+        } : m));
+      } else if (e.action === 'delete') {
+        setMessages(prev => prev.filter(m => m.id !== msg.id));
       }
+    }).then(fn => { unsubFn = fn; }).catch(() => {});
 
-      prevMessagesRef.current = data;
-      setMessages(data);
-    });
-
-    return () => unsubscribe();
+    return () => {
+      if (unsubFn) unsubFn();
+      else pb.collection('chat_messages').unsubscribe('*').catch(() => {});
+    };
   }, [user.email]);
 
+  // Presence subscription
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'presence'), (snapshot) => {
-      const now = Date.now();
-      const users = snapshot.docs
-        .map(d => {
-          const data = d.data();
-          const lastSeen = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : now;
-          return { email: data.email as string, lastSeen };
-        })
-        .filter(u => now - u.lastSeen < 2 * 60 * 1000);
-      setOnlineUsers(users);
-    });
-    return () => unsubscribe();
+    let unsubFn: (() => void) | null = null;
+
+    const fetchPresence = async () => {
+      try {
+        const records = await pb.collection('presence').getFullList();
+        const now = Date.now();
+        const users = records
+          .map((r: any) => ({ email: r.email as string, lastSeen: r.lastSeen ? new Date(r.lastSeen).getTime() : now }))
+          .filter(u => now - u.lastSeen < 2 * 60 * 1000);
+        setOnlineUsers(users);
+      } catch (_) {}
+    };
+
+    fetchPresence();
+    pb.collection('presence').subscribe('*', fetchPresence).then(fn => { unsubFn = fn; }).catch(() => {});
+    return () => {
+      if (unsubFn) unsubFn();
+      else pb.collection('presence').unsubscribe('*').catch(() => {});
+    };
   }, []);
 
   useEffect(() => {
@@ -237,20 +277,18 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
     e.preventDefault();
     if (!targetUser || (!newMessage.trim() && !image)) return;
 
-    const payload: any = { 
+    const payload: any = {
       from: user.email,
       to: targetUser === '公共频道' ? 'all' : targetUser,
-      createdAt: serverTimestamp()
     };
-    
     if (newMessage.trim()) payload.message = newMessage.trim();
     if (image) payload.image = image;
-    
+
     try {
-      await addDoc(collection(db, 'chat_messages'), payload);
+      await pb.collection('chat_messages').create(payload);
       playMessageSent();
     } catch (error) {
-      console.error('Error saving message to Firestore:', error);
+      console.error('Error saving message:', error);
     }
 
     setNewMessage('');
@@ -258,17 +296,17 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
   };
 
   const handleRecall = async (msgId: string, createdAt: any) => {
-    const ts = createdAt?.toDate ? createdAt.toDate().getTime() : Number(createdAt);
+    const ts = createdAt ? new Date(createdAt).getTime() : 0;
     if (Date.now() - ts > 2 * 60 * 1000) {
       alert('只能撤回2分钟内的消息');
       return;
     }
-    await updateDoc(doc(db, 'chat_messages', msgId), { recalled: true, message: '', image: '' });
+    await pb.collection('chat_messages').update(msgId, { recalled: true, message: '', image: '' });
   };
 
   const handleDelete = async (msgId: string) => {
     if (!confirm('确认删除这条消息？')) return;
-    await deleteDoc(doc(db, 'chat_messages', msgId));
+    await pb.collection('chat_messages').delete(msgId);
   };
 
   const handleClearScreen = () => {
@@ -298,6 +336,25 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
     return () => { document.title = original; };
   }, [totalUnread]);
 
+  const filteredMessages = messages.filter(msg => {
+    const clearedAt = targetUser ? localClearedAt[targetUser] : 0;
+    const msgTime = msg.createdAt ? new Date(msg.createdAt).getTime() : 0;
+    if (clearedAt && msgTime < clearedAt) return false;
+
+    if (targetUser === '公共频道') {
+      return msg.to === 'all' || !msg.to;
+    }
+    return (msg.from === user.email && msg.to === targetUser) ||
+           (msg.from === targetUser && msg.to === user.email);
+  });
+
+  const getUserInfo = (email: string) => allUsers.find(u => u.email === email);
+
+  const isOnline = (email: string) => {
+    const now = Date.now();
+    return onlineUsers.some(u => u.email === email && now - u.lastSeen < 2 * 60 * 1000);
+  };
+
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center px-4 sm:px-6 lg:px-8">
@@ -319,171 +376,167 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-4 flex gap-4 overflow-hidden">
-        <div className="w-64 bg-white p-4 border rounded-xl shadow-sm">
-          <h3 className="font-bold mb-4 flex items-center gap-2"><User className="w-4 h-4" /> 用户列表</h3>
-          <ul className="space-y-2">
-            <li 
-              onClick={() => handleSelectConversation('公共频道')} 
+        {/* Sidebar */}
+        <div className="w-64 bg-white p-4 border rounded-xl shadow-sm flex flex-col overflow-hidden">
+          <h3 className="font-bold mb-4 flex items-center gap-2 flex-shrink-0"><User className="w-4 h-4" /> 用户列表</h3>
+          <ul className="space-y-2 overflow-y-auto flex-1">
+            <li
+              onClick={() => handleSelectConversation('公共频道')}
               className={`cursor-pointer p-2 rounded-lg flex items-center justify-between gap-2 ${targetUser === '公共频道' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
             >
-              <span className="truncate text-sm font-bold">公共频道</span>
-              {(unreadCounts['公共频道'] || 0) > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+              <span className="truncate text-sm font-bold">📢 公共频道</span>
+              {unreadCounts['公共频道'] > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                   {unreadCounts['公共频道']}
                 </span>
               )}
             </li>
-            {allUsers.map(u => {
-              const isOnline = onlineUsers.some(o => o.email === u.email);
-              const unread = unreadCounts[u.email] || 0;
-              return (
-                <li 
-                  key={u.id} 
-                  onClick={() => handleSelectConversation(u.email)} 
-                  className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <Avatar email={u.email} displayName={u.displayName} avatarUrl={u.avatarUrl} size="sm" />
-                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${isOnline || u.email === user.email ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  </div>
-                  <span className="truncate text-sm flex-1">{u.email === user.email ? `${u.displayName || u.email} (我)` : (u.displayName || u.email)}</span>
-                  {unread > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 flex-shrink-0">
-                      {unread}
-                    </span>
+            {allUsers.filter(u => u.email !== user.email).map(u => (
+              <li
+                key={u.id}
+                onClick={() => handleSelectConversation(u.email)}
+                className={`cursor-pointer p-2 rounded-lg flex items-center gap-2 ${targetUser === u.email ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              >
+                <div className="relative flex-shrink-0">
+                  <Avatar email={u.email} displayName={u.name} avatarUrl={u.avatarUrl} size="sm" />
+                  {isOnline(u.email) && (
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-400 rounded-full border border-white" />
                   )}
-                </li>
-              );
-            })}
+                </div>
+                <span className="truncate text-sm flex-1">{u.name || u.email.split('@')[0]}</span>
+                {unreadCounts[u.email] > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {unreadCounts[u.email]}
+                  </span>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
 
-        <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h4 className="font-semibold">
-                与 {targetUser === '公共频道' ? '公共频道' : (allUsers.find(u => u.email === targetUser)?.displayName || targetUser)} 对话
-              </h4>
-              <button
-                onClick={handleClearScreen}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
-                title="清屏（仅本设备隐藏）"
-              >
-                <Eraser className="w-3.5 h-3.5" /> 清屏
-              </button>
+        {/* Chat area */}
+        <div className="flex-1 flex flex-col bg-white border rounded-xl shadow-sm overflow-hidden">
+          {/* Chat header */}
+          <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-gray-900">
+                {targetUser === '公共频道' ? '📢 公共频道' : (getUserInfo(targetUser || '')?.name || targetUser)}
+              </span>
+              {targetUser !== '公共频道' && targetUser && isOnline(targetUser) && (
+                <span className="text-xs text-green-500 font-medium">● 在线</span>
+              )}
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 mb-4">
-              {messages
-                .filter(m => {
-                  if (targetUser === '公共频道') return m.to === 'all' || !m.to;
-                  return (m.to === targetUser && m.from === user.email) || 
-                         (m.to === user.email && m.from === targetUser);
-                })
-                .filter(m => {
-                  const clearedTs = localClearedAt[targetUser!];
-                  if (!clearedTs || !m.createdAt) return true;
-                  const msgTs = m.createdAt.toDate ? m.createdAt.toDate().getTime() : Number(m.createdAt);
-                  return msgTs > clearedTs;
-                })
-                .map((m) => {
-                  const isMine = m.from === user.email;
-                  const sender = allUsers.find(u => u.email === m.from);
-                  const senderName = isMine ? (allUsers.find(u => u.email === user.email)?.displayName || '我') : (sender?.displayName || m.from);
-                  const timeStr = m.createdAt
-                    ? (m.createdAt.toDate
-                        ? m.createdAt.toDate().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-                        : new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
-                    : '';
-                  const canRecall = isMine && !m.recalled && m.createdAt && (() => {
-                    const ts = m.createdAt.toDate ? m.createdAt.toDate().getTime() : Number(m.createdAt);
-                    return Date.now() - ts <= 2 * 60 * 1000;
-                  })();
-                  return (
-                    <div
-                      key={m.id}
-                      className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'} group`}
-                      onMouseEnter={() => setHoveredMsgId(m.id)}
-                      onMouseLeave={() => setHoveredMsgId(null)}
-                    >
-                      <Avatar email={m.from} displayName={sender?.displayName} avatarUrl={sender?.avatarUrl} size="sm" />
-                      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                        <span className="text-xs text-gray-500 mb-0.5 px-1">{senderName}</span>
-                        {m.recalled ? (
-                          <div className="px-3 py-2 rounded-2xl bg-gray-100 text-gray-400 text-sm italic">
-                            {isMine ? '你' : senderName} 撤回了一条消息
-                          </div>
-                        ) : (
-                          <div className={`p-3 rounded-2xl ${isMine ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                            {m.message}
-                            {m.image && (
-                              <img
-                                src={m.image}
-                                alt="chat"
-                                className="max-w-xs mt-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => setEnlargedImage(m.image || null)}
-                              />
-                            )}
-                          </div>
-                        )}
-                        <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-                          {timeStr && <span className="text-xs text-gray-400">{timeStr}</span>}
-                          {hoveredMsgId === m.id && !m.recalled && isMine && (
-                            <div className={`flex items-center gap-1 ${isMine ? 'mr-1' : 'ml-1'}`}>
-                              {canRecall && (
-                                <button
-                                  onClick={() => handleRecall(m.id, m.createdAt)}
-                                  className="text-xs text-gray-400 hover:text-orange-500 flex items-center gap-0.5 transition-colors"
-                                  title="撤回（2分钟内有效）"
-                                >
-                                  <Undo2 className="w-3 h-3" /> 撤回
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDelete(m.id)}
-                                className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
-                                title="删除"
-                              >
-                                <Trash2 className="w-3 h-3" /> 删除
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              <div ref={bottomRef} />
-            </div>
-            {image && (
-              <div className="mb-2 p-2 bg-gray-100 rounded-lg inline-block">
-                <img src={image} alt="preview" className="w-20 h-20 object-cover rounded" />
-                <button onClick={() => setImage(null)} className="text-xs text-red-500">取消</button>
-              </div>
-            )}
-            <div className="relative">
-              {showEmojiPicker && (
+            <button
+              onClick={handleClearScreen}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="清屏"
+            >
+              <Eraser className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {filteredMessages.map(msg => {
+              const isMe = msg.from === user.email;
+              const senderInfo = getUserInfo(msg.from);
+              return (
                 <div
-                  ref={emojiPickerRef}
-                  className="absolute bottom-12 left-0 z-50 bg-white border border-gray-200 rounded-2xl shadow-xl w-80"
+                  key={msg.id}
+                  className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => setHoveredMsgId(null)}
                 >
-                  <div className="flex border-b overflow-x-auto">
-                    {EMOJIS.map((cat, i) => (
+                  <Avatar email={msg.from} displayName={senderInfo?.name} avatarUrl={senderInfo?.avatarUrl} size="sm" />
+                  <div className={`max-w-[70%] group flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    <span className="text-xs text-gray-400 mb-1">
+                      {senderInfo?.name || msg.from.split('@')[0]}
+                      {msg.createdAt && <span className="ml-1">{new Date(msg.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>}
+                    </span>
+                    {msg.recalled ? (
+                      <span className="text-xs text-gray-400 italic px-3 py-2 bg-gray-100 rounded-xl">消息已撤回</span>
+                    ) : (
+                      <div className={`px-3 py-2 rounded-2xl ${isMe ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                        {msg.message && <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>}
+                        {msg.image && (
+                          <img
+                            src={msg.image}
+                            alt="图片"
+                            className="max-w-[200px] rounded-lg cursor-pointer mt-1"
+                            onClick={() => setEnlargedImage(msg.image!)}
+                          />
+                        )}
+                      </div>
+                    )}
+                    {/* Message actions */}
+                    {hoveredMsgId === msg.id && !msg.recalled && (
+                      <div className={`flex gap-1 mt-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {isMe && (
+                          <button
+                            onClick={() => handleRecall(msg.id, msg.createdAt)}
+                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="撤回"
+                          >
+                            <Undo2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {(isMe || user?.role === 'admin') && (
+                          <button
+                            onClick={() => handleDelete(msg.id)}
+                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Image preview */}
+          {image && (
+            <div className="px-4 py-2 border-t flex items-center gap-2">
+              <img src={image} alt="preview" className="h-16 rounded-lg object-cover" />
+              <button onClick={() => setImage(null)} className="text-sm text-red-500 hover:underline">移除</button>
+            </div>
+          )}
+
+          {/* Input */}
+          <form onSubmit={handleSendMessage} className="px-4 py-3 border-t flex items-center gap-2">
+            <div className="relative flex-shrink-0" ref={emojiPickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(v => !v)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-lg leading-none"
+              >
+                😊
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-12 left-0 bg-white border border-gray-200 rounded-xl shadow-lg w-72 p-2 z-10">
+                  <div className="flex gap-1 mb-2 border-b pb-2">
+                    {EMOJIS.map((tab, i) => (
                       <button
                         key={i}
+                        type="button"
                         onClick={() => setEmojiTab(i)}
-                        className={`px-3 py-2 text-xs whitespace-nowrap flex-shrink-0 font-medium transition-colors ${emojiTab === i ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`px-2 py-1 text-xs rounded ${emojiTab === i ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-100'}`}
                       >
-                        {cat.label}
+                        {tab.label}
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-8 gap-0.5 p-2 h-48 overflow-y-auto">
+                  <div className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto">
                     {EMOJIS[emojiTab].list.map((emoji, i) => (
                       <button
                         key={i}
-                        onClick={() => insertEmoji(emoji)}
-                        className="text-xl hover:bg-gray-100 rounded-lg p-1 transition-colors leading-none"
-                        title={emoji}
+                        type="button"
+                        onClick={() => { insertEmoji(emoji); setShowEmojiPicker(false); }}
+                        className="text-xl p-1 hover:bg-gray-100 rounded transition-colors"
                       >
                         {emoji}
                       </button>
@@ -491,34 +544,50 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
                   </div>
                 </div>
               )}
-              <form onSubmit={handleSendMessage} className="flex gap-2">
-                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-blue-600">图片</button>
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(v => !v)}
-                  className={`p-2 text-xl leading-none transition-colors ${showEmojiPicker ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-                  title="表情"
-                >
-                  😊
-                </button>
-                <input
-                  ref={inputRef}
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="输入消息..."
-                  className="flex-1 p-3 border rounded-xl"
-                />
-                <button type="submit" className="bg-blue-600 text-white p-3 rounded-xl"><Send className="w-5 h-5" /></button>
-              </form>
             </div>
-          </>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="发送图片"
+            >
+              📎
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageChange}
+            />
+
+            <input
+              ref={inputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder={`发送到 ${targetUser === '公共频道' ? '公共频道' : (getUserInfo(targetUser || '')?.name || targetUser)}`}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!newMessage.trim() && !image}
+              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
         </div>
       </main>
 
+      {/* Enlarged image */}
       {enlargedImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setEnlargedImage(null)}>
-          <img src={enlargedImage} alt="enlarged" className="max-w-full max-h-full object-contain rounded-lg" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <img src={enlargedImage} alt="大图" className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-xl" />
         </div>
       )}
     </div>

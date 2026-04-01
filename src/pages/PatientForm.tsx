@@ -5,78 +5,9 @@ import { read, utils } from 'xlsx';
 import { 
   ArrowLeft, Save, Loader2, ChevronDown, Mic, MicOff, RotateCcw
 } from 'lucide-react';
-import { db, auth } from '../firebase';
+import { pb } from '../lib/pb';
 import { GoogleGenAI } from '@google/genai';
-import { 
-  collection, 
-  addDoc, 
-  doc, 
-  getDoc, 
-  updateDoc, 
-  serverTimestamp,
-  getDocFromServer
-} from 'firebase/firestore';
-import { useAuthState } from 'react-firebase-hooks/auth';
 import { Patient } from '../types';
-
-// Error handling helper
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      displayName: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  
-  // Show a more user-friendly message
-  let message = "数据库操作失败。";
-  if (errInfo.error.includes("permission-denied")) {
-    message = "权限不足，无法执行此操作。请确保您已登录且拥有相应权限。";
-  }
-  
-  throw new Error(JSON.stringify(errInfo));
-}
 
 const SECTION_A_FIELDS = [
   { name: 'customPatientId', label: '患者ID' },
@@ -367,8 +298,7 @@ const FormInput = ({ label, name, type = "text", placeholder, options, multiple 
 export default function PatientForm({ user: propUser }: { user?: any }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [authStateUser] = useAuthState(auth);
-  const user = propUser || authStateUser;
+  const user = propUser || pb.authStore.model;
   const [loading, setLoading] = useState(!!id);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -743,39 +673,20 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
   }, [treatmentStartDate, progressionDate, deathDate, followUpDate, setValue]);
 
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Firebase connection test failed: client is offline.");
-        }
-      }
-    };
-    testConnection();
-
     if (id && user) {
       const fetchPatient = async () => {
         try {
-          const docRef = doc(db, 'patients', id);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data() as Patient;
-            reset(data);
-          }
+          const record = await pb.collection('patients').getOne(id);
+          const data = { id: record.id, ...(record.patientData || {}) } as Patient;
+          reset(data);
         } catch (error) {
           setFormError('获取患者信息失败，权限不足或数据不存在。');
-          try {
-            handleFirestoreError(error, OperationType.GET, `patients/${id}`);
-          } catch (err) {}
         } finally {
           setLoading(false);
         }
       };
       fetchPatient();
-    } else if (id && !user) {
-      setLoading(false);
-    } else if (!id) {
+    } else {
       setLoading(false);
     }
   }, [id, user, reset]);
@@ -967,74 +878,34 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
         }
       });
 
-      const payload: any = {
-        ...finalData,
-        updatedAt: serverTimestamp(),
-      };
-
       if (id) {
-        // Fetch the existing document to ensure we don't overwrite critical fields
-        // and to satisfy the security rules which check request.resource.data.createdAt == resource.data.createdAt
-        const docRef = doc(db, 'patients', id);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const existingData = docSnap.data();
-          
-          // Ensure we don't overwrite these fields, but keep them in the payload if they exist
-          // to satisfy the `data.keys().hasAll(['name', 'authorUid', 'updatedAt'])` rule
-          if (existingData.authorUid !== undefined) {
-            payload.authorUid = existingData.authorUid;
-          } else {
-            payload.authorUid = user.uid; // Fallback for old data
-          }
-          
-          if (existingData.createdAt !== undefined) {
-            payload.createdAt = existingData.createdAt;
-          } else {
-            payload.createdAt = serverTimestamp(); // Fallback for old data
-          }
-          
-          // These are not required by rules but good to preserve
-          if (existingData.userId !== undefined) payload.userId = existingData.userId;
-          if (existingData.authorEmail !== undefined) payload.authorEmail = existingData.authorEmail;
-          if (existingData.authorName !== undefined) payload.authorName = existingData.authorName;
-          
-          // Clean up any undefined values from payload before sending to Firestore
-          Object.keys(payload).forEach(key => {
-            if (payload[key] === undefined) {
-              delete payload[key];
-            }
-          });
-          
-          await updateDoc(docRef, payload);
-        } else {
-          throw new Error("Patient not found");
-        }
-      } else {
-        // On create, set author info and createdAt
-        payload.userId = user.uid;
-        payload.authorUid = user.uid;
-        payload.authorEmail = user.email || '';
-        payload.authorName = user.displayName || user.email?.split('@')[0] || '未知用户';
-        payload.createdAt = serverTimestamp();
-        
-        // Clean up any undefined values from payload before sending to Firestore
-        Object.keys(payload).forEach(key => {
-          if (payload[key] === undefined) {
-            delete payload[key];
-          }
+        const existing = await pb.collection('patients').getOne(id);
+        const existingPatientData = existing.patientData || {};
+        await pb.collection('patients').update(id, {
+          name: finalData.name || '',
+          patientData: {
+            ...existingPatientData,
+            ...finalData,
+            authorUid:   existingPatientData.authorUid   || existing.authorUid,
+            authorEmail: existingPatientData.authorEmail || existing.authorEmail,
+            authorName:  existingPatientData.authorName  || existing.authorName,
+          },
         });
-        
-        await addDoc(collection(db, 'patients'), payload);
+      } else {
+        const authorUid   = user?.id    || '';
+        const authorEmail = user?.email || '';
+        const authorName  = user?.name  || user?.email?.split('@')[0] || '未知用户';
+        await pb.collection('patients').create({
+          name:        finalData.name || '',
+          authorUid,
+          authorEmail,
+          authorName,
+          patientData: { ...finalData, userId: authorUid, authorUid, authorEmail, authorName },
+        });
       }
       navigate('/');
-    } catch (error) {
-      try {
-        handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, id ? `patients/${id}` : 'patients');
-      } catch (err: any) {
-        setFormError(`保存失败，权限不足或数据格式错误。请检查必填项是否完整。`);
-      }
+    } catch (error: any) {
+      setFormError(`保存失败，权限不足或数据格式错误。请检查必填项是否完整。`);
     } finally {
       setSaving(false);
     }

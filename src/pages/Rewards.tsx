@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { collection, onSnapshot, addDoc, runTransaction, doc, query, where, getDocs, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { pb, toPatient } from '../lib/pb';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2, QrCode, X } from 'lucide-react';
 
@@ -36,54 +35,78 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
   const showAdmin = isAdmin && !previewMode;
 
+  // Load patients stats
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'patients'), (snap) => {
-      const map: Record<string, UserStat> = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        const uid   = data.authorUid   || 'unknown';
-        const name  = data.authorName  || data.authorEmail?.split('@')[0] || '未知';
-        const email = data.authorEmail || '';
-        if (!map[uid]) map[uid] = { uid, name, email, count: 0 };
-        map[uid].count++;
-      });
-      setStats(Object.values(map).sort((a, b) => b.count - a.count));
-      setLoading(false);
-    });
-    return () => unsub();
+    let unsubFn: (() => void) | null = null;
+
+    const fetchStats = async () => {
+      try {
+        const records = await pb.collection('patients').getFullList();
+        const map: Record<string, UserStat> = {};
+        records.forEach(r => {
+          const patient = toPatient(r);
+          const uid   = (patient as any).authorUid   || 'unknown';
+          const name  = (patient as any).authorName  || (patient as any).authorEmail?.split('@')[0] || '未知';
+          const email = (patient as any).authorEmail || '';
+          if (!map[uid]) map[uid] = { uid, name, email, count: 0 };
+          map[uid].count++;
+        });
+        setStats(Object.values(map).sort((a, b) => b.count - a.count));
+        setLoading(false);
+      } catch (_) { setLoading(false); }
+    };
+
+    fetchStats();
+    pb.collection('patients').subscribe('*', fetchStats).then(fn => { unsubFn = fn; }).catch(() => {});
+    return () => {
+      if (unsubFn) unsubFn();
+      else pb.collection('patients').unsubscribe('*').catch(() => {});
+    };
   }, []);
 
+  // Load vouchers
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'vouchers'), (snap) => {
-      setVouchers(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
-    });
-    return () => unsub();
+    let unsubFn: (() => void) | null = null;
+
+    const fetchVouchers = async () => {
+      try {
+        const records = await pb.collection('vouchers').getFullList({ sort: 'created' });
+        setVouchers(records.map((r: any) => ({
+          id: r.id,
+          milestoneCount: r.milestoneCount,
+          url: r.url || undefined,
+          imageUrl: r.imageUrl || undefined,
+          claimedBy: r.claimedBy || null,
+          claimedByEmail: r.claimedByEmail || null,
+          claimedByName: r.claimedByName || null,
+          claimedAt: r.claimedAt || null,
+        })));
+      } catch (_) {}
+    };
+
+    fetchVouchers();
+    pb.collection('vouchers').subscribe('*', fetchVouchers).then(fn => { unsubFn = fn; }).catch(() => {});
+    return () => {
+      if (unsubFn) unsubFn();
+      else pb.collection('vouchers').unsubscribe('*').catch(() => {});
+    };
   }, []);
 
   const claim = async (milestoneCount: number) => {
     setClaiming(milestoneCount);
     try {
-      const q = query(
-        collection(db, 'vouchers'),
-        where('milestoneCount', '==', milestoneCount),
-        where('claimedBy', '==', null),
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) { alert('暂无可用兑换券，请联系管理员补充。'); return; }
-      const target = snap.docs[0];
-      await runTransaction(db, async (tx) => {
-        const fresh = await tx.get(target.ref);
-        if (fresh.data()?.claimedBy) throw new Error('already_claimed');
-        const myName = userData?.displayName || stats.find(s => s.uid === user.uid)?.name || user.displayName || user.email?.split('@')[0] || '';
-        tx.update(target.ref, {
-          claimedBy:      user.uid,
-          claimedByEmail: user.email,
-          claimedByName:  myName,
-          claimedAt:      serverTimestamp(),
-        });
+      const available = vouchers.filter(v => v.milestoneCount === milestoneCount && !v.claimedBy);
+      if (available.length === 0) { alert('暂无可用兑换券，请联系管理员补充。'); return; }
+      const target = available[0];
+      const myName = user?.name || stats.find(s => s.uid === user?.id)?.name || user?.email?.split('@')[0] || '';
+      await pb.collection('vouchers').update(target.id, {
+        claimedBy:      user?.id,
+        claimedByEmail: user?.email,
+        claimedByName:  myName,
+        claimedAt:      new Date().toISOString(),
       });
     } catch (e: any) {
-      if (e.message !== 'already_claimed') alert('领取失败，请重试。');
+      alert('领取失败，请重试。');
     } finally {
       setClaiming(null);
     }
@@ -133,13 +156,13 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
         const raw = newUrl.trim();
         const urls = raw.split(/(?=https?:\/\/)/).map(u => u.trim()).filter(u => u.length > 0);
         if (urls.length === 0) return;
-        await Promise.all(urls.map(url => addDoc(collection(db, 'vouchers'), {
+        await Promise.all(urls.map(url => pb.collection('vouchers').create({
           milestoneCount, url, claimedBy: null, claimedByEmail: null, claimedAt: null,
         })));
         setNewUrl('');
       } else {
         if (!newImage) return;
-        await addDoc(collection(db, 'vouchers'), {
+        await pb.collection('vouchers').create({
           milestoneCount, imageUrl: newImage, claimedBy: null, claimedByEmail: null, claimedAt: null,
         });
         setNewImage(null);
@@ -153,7 +176,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
   const deleteVoucher = async (id: string) => {
     if (!confirm('确认删除这条兑换券？')) return;
-    await deleteDoc(doc(db, 'vouchers', id));
+    await pb.collection('vouchers').delete(id);
   };
 
   const openForm = (count: number) => {
@@ -164,7 +187,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const myVoucher    = (milestoneCount: number) => vouchers.find(v => v.milestoneCount === milestoneCount && v.claimedBy === user.uid);
+  const myVoucher    = (milestoneCount: number) => vouchers.find(v => v.milestoneCount === milestoneCount && v.claimedBy === user?.id);
   const hasUnclaimed = (milestoneCount: number) => vouchers.some(v => v.milestoneCount === milestoneCount && !v.claimedBy);
   const countFor     = (milestoneCount: number) => ({
     total:     vouchers.filter(v => v.milestoneCount === milestoneCount).length,
@@ -180,245 +203,254 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
           onClick={() => setQrViewer(null)}
         >
-          <div className="relative bg-white rounded-2xl p-5 shadow-2xl max-w-xs w-full mx-4" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setQrViewer(null)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <p className="text-sm font-medium text-gray-700 mb-3 text-center">扫描二维码兑换</p>
-            <img src={qrViewer} alt="兑换码" className="w-full rounded-lg" />
-            <p className="text-xs text-gray-400 text-center mt-3">点击任意处关闭</p>
+          <div className="bg-white rounded-2xl p-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <img src={qrViewer} alt="兑换券" className="max-w-[80vw] max-h-[80vh] rounded-lg" />
+            <button onClick={() => setQrViewer(null)} className="mt-3 w-full text-sm text-gray-500 hover:text-gray-700">关闭</button>
           </div>
         </div>
       )}
 
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </Link>
-          <Trophy className="w-6 h-6 text-yellow-500" />
-          <h1 className="text-lg font-bold text-gray-900">录入奖励榜</h1>
-          {isAdmin && (
-            <button
-              onClick={() => { setPreviewMode(p => !p); setAddingFor(null); }}
-              className={`ml-auto text-xs px-3 py-1.5 rounded-full border transition-colors ${previewMode ? 'bg-orange-100 text-orange-600 border-orange-300' : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'}`}
-            >
-              {previewMode ? '🙋 当前：用户视角  (点击还原)' : '👁 预览用户视角'}
-            </button>
-          )}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <Link to="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ArrowLeft className="w-5 h-5 text-gray-500" />
+              </Link>
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              <h1 className="text-xl font-bold text-gray-900">录入奖励</h1>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => setPreviewMode(v => !v)}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${previewMode ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'}`}
+              >
+                {previewMode ? '管理视图' : '用户预览'}
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-
-        {/* 奖励规则 */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="font-semibold text-gray-800 mb-1 flex items-center gap-2">
-            <Gift className="w-5 h-5 text-pink-500" /> 奖励规则
-          </h2>
-          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            ⚡ 奖励数量有限，先到先得，领完即止。达到例数不代表一定能领到，请及时领取！
-          </p>
-          <div className="space-y-3">
-            {MILESTONES.map(m => {
-              const c          = countFor(m.count);
-              const myCount    = stats.find(s => s.uid === user?.uid)?.count ?? 0;
-              const reached    = myCount >= m.count;
-              const mv         = myVoucher(m.count);
-              const canClaim   = reached && !mv && hasUnclaimed(m.count);
-              const isClaiming = claiming === m.count;
-              return (
-                <div key={m.count} className={`flex items-center gap-3 text-sm rounded-lg px-2 py-1 transition-colors ${reached ? 'bg-green-50' : ''}`}>
-                  <span className="text-xl w-8 text-center">{m.emoji}</span>
-                  <span className={`w-24 shrink-0 ${reached ? 'text-green-700 font-semibold' : 'text-gray-500'}`}>
-                    达到 <span className="font-bold">{m.count} 例</span>
-                  </span>
-                  <span className="text-gray-700 font-medium flex-1">
-                    {m.reward}
-                    <span className="ml-1.5 text-xs text-orange-500 font-normal">限{m.topN}份</span>
-                    {reached && <span className="ml-1 text-green-600 text-xs">✓ 已达成</span>}
-                  </span>
-                  {c.total > 0 && (
-                    <span className={`text-xs shrink-0 ${c.unclaimed === 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                      剩 {c.unclaimed}/{c.total}
-                    </span>
-                  )}
-                  {canClaim && (
-                    <button
-                      onClick={() => claim(m.count)}
-                      disabled={isClaiming}
-                      className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 disabled:opacity-60"
-                    >
-                      {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                      领取
-                    </button>
-                  )}
-                  {mv && mv.imageUrl && (
-                    <button
-                      onClick={() => setQrViewer(mv.imageUrl!)}
-                      className="text-xs bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 hover:bg-green-100"
-                    >
-                      <QrCode className="w-3 h-3" /> 查看二维码
-                    </button>
-                  )}
-                  {mv && mv.url && (
-                    <a href={mv.url} target="_blank" rel="noopener noreferrer"
-                      className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 hover:bg-blue-100"
-                    >
-                      <ExternalLink className="w-3 h-3" /> 兑换
-                    </a>
-                  )}
-                  {reached && !mv && !hasUnclaimed(m.count) && (
-                    <span className="text-xs text-gray-400 shrink-0">待补充</span>
-                  )}
-                  {showAdmin && (
-                    <button
-                      onClick={() => openForm(m.count)}
-                      className="text-blue-500 hover:text-blue-700 shrink-0"
-                      title="添加兑换券"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Leaderboard */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" /> 录入排行榜
+            </h2>
           </div>
-
-          {/* 管理员添加表单 */}
-          {showAdmin && addingFor !== null && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg space-y-3">
-              <p className="text-sm font-medium text-blue-800">
-                添加「{MILESTONES.find(m => m.count === addingFor)?.emoji} {MILESTONES.find(m => m.count === addingFor)?.reward}」兑换券
-              </p>
-              {/* 模式切换 */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setAddMode('url'); setNewImage(null); }}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${addMode === 'url' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                >
-                  🔗 粘贴链接
-                </button>
-                <button
-                  onClick={() => { setAddMode('image'); setNewUrl(''); }}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${addMode === 'image' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                >
-                  📷 上传二维码
-                </button>
-              </div>
-
-              {addMode === 'url' ? (
-                <textarea
-                  value={newUrl}
-                  onChange={e => setNewUrl(e.target.value)}
-                  placeholder="粘贴兑换链接（支持多条，每行一个）…"
-                  rows={4}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none font-mono"
-                />
-              ) : (
-                <div className="space-y-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer"
-                  />
-                  {newImage && (
-                    <div className="relative inline-block">
-                      <img src={newImage} alt="预览" className="w-36 h-36 object-contain border rounded-lg bg-white p-1" />
-                      <button
-                        onClick={() => { setNewImage(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                      >×</button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => saveVoucher(addingFor)}
-                  disabled={saving || (addMode === 'url' ? !newUrl.trim() : !newImage)}
-                  className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
-                >
-                  {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} 保存
-                </button>
-                <button
-                  onClick={() => setAddingFor(null)}
-                  className="text-sm text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100"
-                >
-                  取消
-                </button>
-              </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
             </div>
-          )}
-
-          {/* 管理员：已添加的券列表 */}
-          {showAdmin && addingFor !== null && (
-            <div className="mt-2 space-y-1">
-              {vouchers.filter(v => v.milestoneCount === addingFor).map(v => (
-                <div key={v.id} className="flex items-center gap-2 text-xs px-1">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${v.claimedBy ? 'bg-green-400' : 'bg-gray-300'}`} />
-                  {v.imageUrl ? (
-                    <span className="flex items-center gap-1 text-gray-500 flex-1">
-                      <QrCode className="w-3 h-3" /> 二维码图片
-                    </span>
-                  ) : (
-                    <span className="flex-1 truncate font-mono text-gray-500">{v.url}</span>
-                  )}
-                  <span className="shrink-0 text-gray-400">
-                    {v.claimedBy
-                      ? `已领 (${v.claimedByName || stats.find(s => s.uid === v.claimedBy)?.name || v.claimedByEmail?.split('@')[0]})`
-                      : '未领'}
+          ) : stats.length === 0 ? (
+            <div className="py-8 text-center text-gray-400">暂无数据</div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {stats.map((s, i) => (
+                <div key={s.uid} className={`px-6 py-3 flex items-center gap-4 ${s.uid === user?.id ? 'bg-blue-50' : ''}`}>
+                  <span className={`w-6 text-sm font-bold ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'text-gray-400'}`}>
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
                   </span>
-                  <button onClick={() => deleteVoucher(v.id)} className="text-red-400 hover:text-red-600 shrink-0">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {s.name} {s.uid === user?.id && <span className="text-blue-500 text-xs">(我)</span>}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">{s.email}</div>
+                  </div>
+                  <span className="text-sm font-bold text-blue-600">{s.count} 例</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* 领取记录 */}
-        {vouchers.filter(v => v.claimedBy).length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <span className="text-lg">🎉</span> 领取记录
-            </h2>
-            <div className="space-y-2">
-              {vouchers
-                .filter(v => v.claimedBy)
-                .sort((a, b) => {
-                  const ta = a.claimedAt?.toMillis?.() ?? 0;
-                  const tb = b.claimedAt?.toMillis?.() ?? 0;
-                  return tb - ta;
-                })
-                .map(v => {
-                  const m = MILESTONES.find(m => m.count === v.milestoneCount);
-                  return (
-                    <div key={v.id} className="flex items-center gap-3 text-sm">
-                      <span className="text-xl w-8 text-center">{m?.emoji ?? '🎁'}</span>
-                      <span className="text-gray-700 font-medium flex-1">{m?.reward ?? '奖励'}</span>
-                      <span className="text-gray-500 text-xs">
-                        {v.claimedByName
-                          || stats.find(s => s.uid === v.claimedBy)?.name
-                          || (v.claimedBy === user?.uid ? (userData?.displayName || user?.displayName || null) : null)
-                          || v.claimedByEmail?.split('@')[0]}
-                      </span>
-                      <span className="text-green-500 text-xs font-medium">✓ 已领取</span>
-                    </div>
-                  );
-                })}
-            </div>
+        {/* First-come note */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 flex items-start gap-2">
+          <span className="text-lg leading-tight">⚡</span>
+          <div>
+            <span className="font-semibold">先到先得！</span>
+            每个奖励层级的兑换券数量有限，达到录入门槛后请尽快领取。
           </div>
-        )}
+        </div>
 
-      </div>
+        {/* Milestones */}
+        <div className="space-y-4">
+          {MILESTONES.map(ms => {
+            const myCount = stats.find(s => s.uid === user?.id)?.count || 0;
+            const unlocked = myCount >= ms.count;
+            const claimed  = myVoucher(ms.count);
+            const cnt      = countFor(ms.count);
+
+            return (
+              <div key={ms.count} className={`bg-white rounded-xl border shadow-sm overflow-hidden ${unlocked ? 'border-green-200' : 'border-gray-200'}`}>
+                <div className="px-5 py-4 flex items-center gap-4">
+                  <span className={`text-3xl ${unlocked ? '' : 'grayscale opacity-50'}`}>{ms.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-gray-900">{ms.reward}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${unlocked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {unlocked ? '✓ 已解锁' : `需录入 ${ms.count} 例`}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                        限 {ms.topN} 份
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {unlocked
+                        ? `您已录入 ${myCount} 例`
+                        : `您已录入 ${myCount} / ${ms.count} 例`}
+                      {cnt.total > 0 && (
+                        <span className="ml-2 text-gray-300">
+                          · 已发放 {cnt.total} 张，已领 {cnt.claimed} 张，剩余 {cnt.unclaimed} 张
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {claimed ? (
+                      <div className="flex items-center gap-2">
+                        {(claimed.url || claimed.imageUrl) && (
+                          <button
+                            onClick={() => {
+                              if (claimed.imageUrl) setQrViewer(claimed.imageUrl);
+                              else if (claimed.url) window.open(claimed.url, '_blank');
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                          >
+                            {claimed.imageUrl ? <QrCode className="w-3.5 h-3.5" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                            查看兑换码
+                          </button>
+                        )}
+                        <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded-lg">✓ 已领取</span>
+                      </div>
+                    ) : unlocked && hasUnclaimed(ms.count) ? (
+                      <button
+                        onClick={() => claim(ms.count)}
+                        disabled={claiming === ms.count}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-green-400 rounded-lg transition-colors shadow-sm"
+                      >
+                        {claiming === ms.count ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
+                        立即领取
+                      </button>
+                    ) : unlocked && !hasUnclaimed(ms.count) ? (
+                      <span className="text-xs text-gray-400 px-3 py-1.5 bg-gray-100 rounded-lg">兑换券已发完</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Admin panel */}
+                {showAdmin && (
+                  <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500 font-medium">管理员操作</span>
+                      {addingFor !== ms.count && (
+                        <button
+                          onClick={() => openForm(ms.count)}
+                          className="flex items-center gap-1 text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors"
+                        >
+                          <Plus className="w-3 h-3" /> 添加兑换券
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Existing vouchers */}
+                    <div className="space-y-1">
+                      {vouchers.filter(v => v.milestoneCount === ms.count).map(v => (
+                        <div key={v.id} className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg px-2 py-1.5 border border-gray-200">
+                          {v.imageUrl ? (
+                            <button onClick={() => setQrViewer(v.imageUrl!)} className="text-blue-600 hover:underline flex items-center gap-1">
+                              <QrCode className="w-3 h-3" /> 图片券
+                            </button>
+                          ) : v.url ? (
+                            <a href={v.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 min-w-0 flex-1 truncate">
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" /> {v.url.slice(0, 40)}…
+                            </a>
+                          ) : null}
+                          {v.claimedBy ? (
+                            <span className="flex-shrink-0 text-green-600">已领: {v.claimedByName || v.claimedByEmail}</span>
+                          ) : (
+                            <span className="flex-shrink-0 text-amber-500">未领取</span>
+                          )}
+                          <button
+                            onClick={() => deleteVoucher(v.id)}
+                            className="flex-shrink-0 text-red-400 hover:text-red-600 ml-auto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add form */}
+                    {addingFor === ms.count && (
+                      <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200">
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => setAddMode('url')}
+                            className={`text-xs px-2 py-1 rounded ${addMode === 'url' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                          >
+                            链接
+                          </button>
+                          <button
+                            onClick={() => setAddMode('image')}
+                            className={`text-xs px-2 py-1 rounded ${addMode === 'image' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                          >
+                            图片
+                          </button>
+                        </div>
+                        {addMode === 'url' ? (
+                          <textarea
+                            value={newUrl}
+                            onChange={e => setNewUrl(e.target.value)}
+                            placeholder="粘贴兑换码链接（多个链接换行）"
+                            rows={3}
+                            className="w-full text-xs border border-gray-300 rounded p-2 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+                          />
+                        ) : (
+                          <div>
+                            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                            {newImage ? (
+                              <div className="flex items-center gap-2">
+                                <img src={newImage} alt="preview" className="h-16 rounded" />
+                                <button onClick={() => setNewImage(null)} className="text-xs text-red-500">移除</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full py-4 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                              >
+                                点击上传二维码图片
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => setAddingFor(null)}
+                            className="flex-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                          >
+                            取消
+                          </button>
+                          <button
+                            onClick={() => saveVoucher(ms.count)}
+                            disabled={saving || (addMode === 'url' ? !newUrl.trim() : !newImage)}
+                            className="flex-1 px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg flex items-center justify-center gap-1"
+                          >
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </main>
     </div>
   );
 }

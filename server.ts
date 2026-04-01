@@ -7,6 +7,8 @@ import OpenAI from "openai";
 import path from "path";
 import dotenv from "dotenv";
 import fs from "fs";
+import { createProxyMiddleware } from "http-proxy-middleware";
+import { spawn } from "child_process";
 
 dotenv.config();
 
@@ -542,6 +544,36 @@ async function startServer() {
       res.status(500).json({ error: error.message || "Chat failed" });
     }
   });
+
+  // ── PocketBase proxy ────────────────────────────────────────────────────────
+  app.use(
+    '/pocketbase',
+    createProxyMiddleware({
+      target: 'http://localhost:8090',
+      changeOrigin: true,
+      pathRewrite: { '^/pocketbase': '' },
+      on: {
+        error: (_err, _req, res: any) => {
+          res.status(502).json({ error: 'PocketBase not reachable' });
+        },
+      },
+    })
+  );
+
+  // ── Spawn PocketBase in production ─────────────────────────────────────────
+  if (process.env.NODE_ENV === "production") {
+    const pbBinary = path.resolve('./bin/pocketbase');
+    if (fs.existsSync(pbBinary)) {
+      const pb = spawn(pbBinary, ['serve', '--http=0.0.0.0:8090', '--dir=./pb_data'], {
+        stdio: 'inherit',
+        detached: false,
+      });
+      pb.on('error', (err) => console.error('PocketBase spawn error:', err));
+      process.on('exit', () => pb.kill());
+    } else {
+      console.warn('PocketBase binary not found at', pbBinary);
+    }
+  }
 
   // Vite middleware for development or serve static files for production
   if (process.env.NODE_ENV !== "production") {

@@ -21,6 +21,14 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       allowedHosts: true,
       host: '0.0.0.0',
+      proxy: {
+        '/pocketbase': {
+          target: 'http://localhost:8090',
+          rewrite: (path: string) => path.replace(/^\/pocketbase/, ''),
+          changeOrigin: true,
+          ws: true,
+        },
+      },
     },
     build: {
       outDir: 'dist/public',

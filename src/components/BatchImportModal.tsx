@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Loader2, CheckCircle, AlertCircle, FileText, Play, Database } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { pb } from '../lib/pb';
 import * as XLSX from 'xlsx';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -376,15 +375,19 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
             let processed = calculateDerivedFields(item);
             if (!processed.name) processed.name = `批量导入患者`;
             
-            processed.authorUid = user.uid;
-            processed.authorEmail = user.email || '';
-            processed.authorName = user.displayName || user.email?.split('@')[0] || '未知用户';
-            processed.createdAt = Date.now();
-            processed.updatedAt = Date.now();
-            
-            processed = cleanPayload(processed);
-            
-            await addDoc(collection(db, 'patients'), processed);
+            const authorUid   = user?.id    || '';
+            const authorEmail = user?.email  || '';
+            const authorName  = user?.name   || user?.email?.split('@')[0] || '未知用户';
+
+            processed = cleanPayload({ ...processed, authorUid, authorEmail, authorName, userId: authorUid });
+
+            await pb.collection('patients').create({
+              name:        processed.name || '批量导入患者',
+              authorUid,
+              authorEmail,
+              authorName,
+              patientData: processed,
+            });
             savedCount++;
             totalSaved++;
           }
