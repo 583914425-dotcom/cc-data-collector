@@ -180,8 +180,8 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   </span>
                   <span className="text-gray-400 shrink-0">前 {m.topN} 名</span>
                   <span className="text-gray-700 font-medium flex-1">{m.reward}</span>
-                  {showAdmin && (
-                    <span className="text-xs text-gray-400 shrink-0">
+                  {c.total > 0 && (
+                    <span className={`text-xs shrink-0 ${c.unclaimed === 0 ? 'text-red-400' : 'text-gray-400'}`}>
                       剩 {c.unclaimed}/{c.total}
                     </span>
                   )}
