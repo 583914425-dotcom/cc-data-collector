@@ -5,13 +5,13 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2, QrCode, X } from 'lucide-react';
 
 const MILESTONES = [
-  { count: 3,   topN: 4, reward: '喜茶',                  emoji: '🧋' },
-  { count: 10,  topN: 3, reward: '李先生牛肉面单人餐',       emoji: '🍜' },
-  { count: 20,  topN: 3, reward: '肯德基开工吃堡单人餐',    emoji: '🍗' },
-  { count: 30,  topN: 2, reward: '喜家德西芹水饺单人餐',    emoji: '🥟' },
-  { count: 50,  topN: 2, reward: '赛百味金枪鱼双拼三明治',  emoji: '🥖' },
-  { count: 100, topN: 1, reward: '熊喵来了春季宴请火锅双人餐', emoji: '🍲' },
-  { count: 150, topN: 1, reward: '安小胖韩国烤肉2-3人餐',   emoji: '🥩' },
+  { count: 3,   topN: 4, reward: '喜茶',                     emoji: '🧋' },
+  { count: 10,  topN: 1, reward: '李先生牛肉面单人餐',          emoji: '🍜' },
+  { count: 20,  topN: 1, reward: '肯德基开工吃堡单人餐',         emoji: '🍗' },
+  { count: 30,  topN: 1, reward: '喜家德西芹水饺单人餐',         emoji: '🥟' },
+  { count: 50,  topN: 1, reward: '赛百味金枪鱼双拼三明治',       emoji: '🥖' },
+  { count: 100, topN: 1, reward: '熊喵来了春季宴请火锅双人餐',   emoji: '🍲' },
+  { count: 150, topN: 1, reward: '安小胖韩国烤肉2-3人餐',       emoji: '🥩' },
 ];
 
 type UserStat  = { uid: string; name: string; email: string; count: number };
@@ -216,9 +216,12 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
 
         {/* 奖励规则 */}
         <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-gray-800 mb-1 flex items-center gap-2">
             <Gift className="w-5 h-5 text-pink-500" /> 奖励规则
           </h2>
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            ⚡ 奖励数量有限，先到先得，领完即止。达到例数不代表一定能领到，请及时领取！
+          </p>
           <div className="space-y-3">
             {MILESTONES.map(m => {
               const c          = countFor(m.count);
@@ -233,7 +236,9 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                   <span className={`w-24 shrink-0 ${reached ? 'text-green-700 font-semibold' : 'text-gray-500'}`}>
                     达到 <span className="font-bold">{m.count} 例</span>
                   </span>
-                  <span className="text-gray-700 font-medium flex-1">{m.reward}
+                  <span className="text-gray-700 font-medium flex-1">
+                    {m.reward}
+                    <span className="ml-1.5 text-xs text-orange-500 font-normal">限{m.topN}份</span>
                     {reached && <span className="ml-1 text-green-600 text-xs">✓ 已达成</span>}
                   </span>
                   {c.total > 0 && (
