@@ -77,7 +77,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
       await runTransaction(db, async (tx) => {
         const fresh = await tx.get(target.ref);
         if (fresh.data()?.claimedBy) throw new Error('already_claimed');
-        const myName = stats.find(s => s.uid === user.uid)?.name ?? user.email?.split('@')[0] ?? '';
+        const myName = stats.find(s => s.uid === user.uid)?.name || user.displayName || user.email?.split('@')[0] || '';
         tx.update(target.ref, {
           claimedBy:      user.uid,
           claimedByEmail: user.email,
@@ -261,7 +261,10 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
                       <span className="text-xl w-8 text-center">{m?.emoji ?? '🎁'}</span>
                       <span className="text-gray-700 font-medium flex-1">{m?.reward ?? '奖励'}</span>
                       <span className="text-gray-500 text-xs">
-                        {v.claimedByName || stats.find(s => s.uid === v.claimedBy)?.name || v.claimedByEmail?.split('@')[0]}
+                        {v.claimedByName
+                          || stats.find(s => s.uid === v.claimedBy)?.name
+                          || (v.claimedBy === user?.uid ? (user?.displayName ?? null) : null)
+                          || v.claimedByEmail?.split('@')[0]}
                       </span>
                       <span className="text-green-500 text-xs font-medium">✓ 已领取</span>
                     </div>
