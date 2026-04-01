@@ -6,7 +6,7 @@ import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2 } from 'lu
 
 const MILESTONES = [
   { count: 3,   topN: 4, reward: '喜茶',                  emoji: '🧋' },
-  { count: 10,  topN: 3, reward: '李先生牛肉面',            emoji: '🍜' },
+  { count: 10,  topN: 3, reward: '肯德基单人餐',            emoji: '🍗' },
   { count: 20,  topN: 3, reward: '喜家德水饺',              emoji: '🥟' },
   { count: 30,  topN: 2, reward: '肯德基礼品卡',            emoji: '🍗' },
   { count: 50,  topN: 2, reward: '星巴克礼品卡',            emoji: '☕' },
