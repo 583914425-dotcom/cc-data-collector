@@ -190,10 +190,17 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
     const prevCountKey = `milestone_prevcount_${user.uid}`;
     const lastCelebrated = parseInt(localStorage.getItem(celebratedKey) || '0', 10);
     const rawPrev = localStorage.getItem(prevCountKey);
+    const prevCount = rawPrev === null ? Math.max(0, myCount - 1) : parseInt(rawPrev, 10);
     localStorage.setItem(prevCountKey, String(myCount));
-    if (rawPrev === null) return;
-    const prevCount = parseInt(rawPrev, 10);
-    if (myCount <= prevCount) return;
+    if (myCount <= prevCount) {
+      const stuckHit = MILESTONES.find(m => m.count === myCount && m.count > lastCelebrated);
+      if (stuckHit) {
+        localStorage.setItem(celebratedKey, String(stuckHit.count));
+        setMilestoneAlert(stuckHit);
+        playVictorySound();
+      }
+      return;
+    }
     const hit = [...MILESTONES].reverse().find(m => myCount >= m.count && prevCount < m.count && m.count > lastCelebrated);
     if (hit) {
       localStorage.setItem(celebratedKey, String(hit.count));
