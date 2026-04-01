@@ -24,6 +24,37 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [avatarPreview, setAvatarPreview] = useState<string>(userData?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
+  const [milestoneAlert, setMilestoneAlert] = useState<{ count: number; reward: string } | null>(null);
+  const prevMyCountRef = useRef<number | null>(null);
+
+  const MILESTONES: { count: number; reward: string }[] = [
+    { count: 3, reward: '🧋 喜茶一杯' },
+    { count: 10, reward: '🍜 李先生牛肉面' },
+    { count: 20, reward: '🥟 喜家德饺子' },
+    { count: 30, reward: '🍗 KFC套餐' },
+    { count: 50, reward: '☕ 星巴克' },
+    { count: 100, reward: '🥩 安小胖烤肉' },
+    { count: 150, reward: '🍲 熊喵来了火锅' },
+  ];
+
+  const playVictorySound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+      });
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     setDisplayName(userData?.displayName || '');
@@ -152,6 +183,26 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid || patients.length === 0) return;
+    const myCount = patients.filter(p => p.authorUid === user.uid).length;
+    const storageKey = `milestone_last_${user.uid}`;
+    const lastCelebrated = parseInt(localStorage.getItem(storageKey) || '0', 10);
+    if (prevMyCountRef.current === null) {
+      prevMyCountRef.current = myCount;
+      return;
+    }
+    const prev = prevMyCountRef.current;
+    prevMyCountRef.current = myCount;
+    if (myCount <= prev) return;
+    const hit = [...MILESTONES].reverse().find(m => myCount >= m.count && prev < m.count && m.count > lastCelebrated);
+    if (hit) {
+      localStorage.setItem(storageKey, String(hit.count));
+      setMilestoneAlert(hit);
+      playVictorySound();
+    }
+  }, [patients, user?.uid]);
 
   const handleExport = () => {
     if (patients.length === 0) return;
@@ -605,6 +656,59 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
                 {savingProfile ? '保存中...' : '保存'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {milestoneAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <style>{`
+            @keyframes confetti-fall {
+              0% { transform: translateY(-80px) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+            }
+            @keyframes pop-in {
+              0% { transform: scale(0.3); opacity: 0; }
+              70% { transform: scale(1.1); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            .milestone-card { animation: pop-in 0.45s cubic-bezier(.17,.67,.35,1.2) both; }
+            .confetti-piece { position: fixed; top: -20px; width: 10px; height: 14px; opacity: 0; animation: confetti-fall linear infinite; pointer-events: none; }
+          `}</style>
+
+          {['#f43f5e','#f97316','#facc15','#22c55e','#3b82f6','#a855f7','#ec4899'].flatMap((color, ci) =>
+            Array.from({ length: 6 }, (_, i) => (
+              <div
+                key={`c-${ci}-${i}`}
+                className="confetti-piece"
+                style={{
+                  left: `${(ci * 6 + i) * 2.2}%`,
+                  background: color,
+                  animationDuration: `${1.8 + (ci + i) * 0.23}s`,
+                  animationDelay: `${(ci * 0.07 + i * 0.13)}s`,
+                  borderRadius: i % 2 === 0 ? '50%' : '2px',
+                  width: `${8 + (i % 3) * 4}px`,
+                  height: `${10 + (ci % 3) * 4}px`,
+                }}
+              />
+            ))
+          )}
+
+          <div className="milestone-card relative bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
+            <div className="text-6xl mb-3">🎉</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">里程碑达成！</div>
+            <div className="text-5xl font-black text-orange-500 my-3">{milestoneAlert.count} 例</div>
+            <div className="text-gray-500 text-sm mb-2">恭喜你解锁奖励</div>
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl px-5 py-3 text-lg font-semibold text-orange-700 mb-6">
+              {milestoneAlert.reward}
+            </div>
+            <p className="text-xs text-gray-400 mb-5">前往「奖励榜」页面领取你的奖励 🏆</p>
+            <button
+              onClick={() => setMilestoneAlert(null)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-400 to-pink-500 text-white font-bold text-base hover:opacity-90 transition"
+            >
+              太棒了！
+            </button>
           </div>
         </div>
       )}
