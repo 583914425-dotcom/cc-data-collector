@@ -212,7 +212,7 @@ async function startServer() {
         tnmStaging: { type: "string", description: "TNM分期" },
         histologyType: { type: "string", description: "组织学类型 (鳞状细胞癌/腺癌/腺鳞癌/其他)" },
         differentiation: { type: "string", description: "肿瘤分化程度 (高分化/中分化/低分化/未知)" },
-        tumorMaxDiameter: { type: "number", description: "肿瘤最大径 (cm)" },
+        tumorMaxDiameter: { type: "number", description: "肿瘤最大径 (mm)" },
         parametrialInvasion: { type: "string", description: "宫旁浸润 (有/无/未知)" },
         corpusInvasion: { type: "string", description: "宫体浸润 (有/无/未知)" },
         vaginalInvasion: { type: "string", description: "阴道受侵范围 (无/上1/3/中1/3/下1/3/未知)" },

@@ -40,7 +40,7 @@ const SECTION_B_FIELDS = [
   
   { name: 'histologyType', label: '组织学类型', options: ['鳞状细胞癌', '腺癌', '腺鳞癌', '其他'] },
   { name: 'differentiation', label: '分化程度', options: ['高分化', '中分化', '低分化'] },
-  { name: 'tumorMaxDiameter', label: '肿瘤最大径 (cm)' },
+  { name: 'tumorMaxDiameter', label: '肿瘤最大径 (mm)' },
   { name: 'parametrialInvasion', label: '宫旁浸润', options: ['无', '有'] },
   { name: 'corpusInvasion', label: '宫体浸润', options: ['无', '有'] },
   { name: 'vaginalInvasion', label: '阴道受侵范围', options: ['无', '上1/3', '中1/3', '下1/3'] },
@@ -191,6 +191,34 @@ function parseCustomPatientId(value?: string) {
   return { prefix: DEFAULT_PATIENT_ID_PREFIX, suffix: normalizedValue };
 }
 
+function formatDateDisplayValue(value?: string) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 8);
+  if (!digits) return '';
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
+}
+
+function toIsoDate(value?: string) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 8);
+  if (digits.length !== 8) return '';
+
+  const year = Number(digits.slice(0, 4));
+  const month = Number(digits.slice(4, 6));
+  const day = Number(digits.slice(6, 8));
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return '';
+  }
+
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
 const PatientIdInput = ({ label, name, currentValue, register, setValue, toggleRecording, processingField, recordingField }: any) => {
   const parsedValue = parseCustomPatientId(currentValue);
   const [selectedPrefix, setSelectedPrefix] = useState(parsedValue.prefix);
@@ -252,6 +280,70 @@ const PatientIdInput = ({ label, name, currentValue, register, setValue, toggleR
             )}
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const DateInput = ({ label, name, currentValue, register, setValue, toggleRecording, processingField, recordingField }: any) => {
+  const [inputValue, setInputValue] = useState(formatDateDisplayValue(currentValue));
+
+  useEffect(() => {
+    setInputValue(formatDateDisplayValue(currentValue));
+  }, [currentValue]);
+
+  const updateDate = (rawValue: string) => {
+    const formattedValue = formatDateDisplayValue(rawValue);
+    const digits = rawValue.replace(/\D/g, '').slice(0, 8);
+
+    setInputValue(formattedValue);
+
+    if (!digits) {
+      setValue(name, '', { shouldValidate: true, shouldDirty: true });
+      return;
+    }
+
+    if (digits.length === 8) {
+      setValue(name, toIsoDate(digits), { shouldValidate: true, shouldDirty: true });
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <input type="hidden" {...register(name)} />
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={inputValue}
+          onChange={(e) => updateDate(e.target.value)}
+          placeholder="yyyy/mm/dd"
+          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-white"
+        />
+        <button
+          type="button"
+          onClick={() => toggleRecording(name, label)}
+          disabled={processingField === name}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${
+            recordingField === name
+              ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse'
+              : processingField === name
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+          }`}
+          title={recordingField === name ? "停止录音" : processingField === name ? "正在处理..." : "语音输入"}
+        >
+          {processingField === name ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : recordingField === name ? (
+            <MicOff className="w-4 h-4" />
+          ) : (
+            <Mic className="w-4 h-4" />
+          )}
+        </button>
       </div>
     </div>
   );
@@ -320,7 +412,7 @@ const FormSection = ({ title, children, id, fields, clearSection, toggleSectionR
 
 const FormInput = ({ label, name, type = "text", placeholder, options, multiple = false, description, readOnly = false, register, toggleRecording, processingField, recordingField }: any) => {
   const listId = options ? `${name}-list` : undefined;
-  
+
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-gray-700">
@@ -364,8 +456,8 @@ const FormInput = ({ label, name, type = "text", placeholder, options, multiple 
             onClick={() => toggleRecording(name, label, options)}
             disabled={processingField === name}
             className={`absolute right-2 ${type === 'textarea' ? 'top-2' : 'top-1/2 -translate-y-1/2'} p-1.5 rounded-md transition-colors ${
-              recordingField === name 
-                ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse' 
+              recordingField === name
+                ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse'
                 : processingField === name
                 ? 'bg-blue-50 text-blue-600'
                 : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
@@ -572,7 +664,7 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
     { sectionId: 'section-e', fields: SECTION_E_FIELDS },
   ].flatMap(({ sectionId, fields }) =>
     fields
-      .filter(f => !f.readOnly && !f.optional && f.label !== '备注')
+      .filter(f => !('readOnly' in f && f.readOnly) && !('optional' in f && f.optional) && f.label !== '备注')
       .filter(f => String(allFormValues?.[f.name] ?? '').trim() === '')
       .map(f => ({ label: f.label, sectionId }))
   );
@@ -725,7 +817,7 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
 
   useEffect(() => {
     if (tumorMaxDiameter && Number(tumorMaxDiameter) > 0) {
-      setValue('tumorMaxDiameterGroup', Number(tumorMaxDiameter) < 4 ? '<4' : '>=4');
+      setValue('tumorMaxDiameterGroup', Number(tumorMaxDiameter) < 40 ? '<40mm' : '>=40mm');
     } else {
       setValue('tumorMaxDiameterGroup', undefined);
     }
@@ -959,7 +1051,6 @@ const finalData: any = {
           sanitizedData.tnmN || '',
           sanitizedData.tnmM || 'M0'
         ].join(''),
-        followUpDate: new Date().toISOString().slice(0, 10)
       };
       
       // Remove empty strings and convert numeric fields
@@ -1169,7 +1260,21 @@ const finalData: any = {
 
             <FormSection title="E. 结局与随访" id="section-e" fields={SECTION_E_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues} suppressSound={allSectionsComplete}>
               {SECTION_E_FIELDS.map(field => (
-                <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
+                field.type === 'date' ? (
+                  <DateInput
+                    key={field.name}
+                    label={field.label}
+                    name={field.name}
+                    currentValue={allFormValues?.[field.name]}
+                    register={register}
+                    setValue={setValue}
+                    toggleRecording={toggleRecording}
+                    processingField={processingField}
+                    recordingField={recordingField}
+                  />
+                ) : (
+                  <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
+                )
               ))}
             </FormSection>
           </form>

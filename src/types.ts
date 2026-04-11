@@ -14,25 +14,30 @@ export interface Patient {
   bmi?: string | number;
   bmiGroup?: string;
   bloodPressure?: string;
+  systolicBP?: string | number;
+  diastolicBP?: string | number;
   hypertensionGrade?: string;
   remarkA?: string;
-  
+
   figo2018?: string;
   figoSummary?: string;
   tnmStaging?: string;
+  tnmT?: string;
+  tnmN?: string;
+  tnmM?: string;
   histologyType?: string;
   differentiation?: string;
   tumorMaxDiameter?: string | number;
   tumorMaxDiameterGroup?: string;
   remarkB?: string;
-  
+
   parametrialInvasion?: string;
   corpusInvasion?: string;
   vaginalInvasion?: string;
   bladderInvasion?: string;
   rectalInvasion?: string;
   pelvicLN?: string;
-  
+
   rbcCount?: string | number;
   wbcCount?: string | number;
   plateletCount?: string | number;
@@ -47,7 +52,7 @@ export interface Patient {
   plr?: string | number;
   lmr?: string | number;
   remarkC?: string;
-  
+
   rtTechnology?: string;
   ebrtDose?: string | number;
   ebrtDoseGroup?: string;
@@ -75,14 +80,14 @@ export interface Patient {
   osMonths?: string | number;
   survivalStatus?: string;
   followUpDate?: string;
-  
+
   imagingFiles?: {
     name: string;
     url: string;
     size: number;
     path: string;
   }[];
-  
+
   authorEmail?: string;
   authorName?: string;
   authorUid?: string;

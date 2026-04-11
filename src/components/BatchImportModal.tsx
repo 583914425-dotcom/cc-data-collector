@@ -1,6 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Loader2, CheckCircle, AlertCircle, FileText, Play, Database } from 'lucide-react';
 import { pb } from '../lib/pb';
+import {
+  hasMeaningfulStructuredData,
+  mapStructuredSpreadsheetRow,
+} from '../lib/patientSpreadsheet';
 import * as XLSX from 'xlsx';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -24,6 +28,8 @@ interface FileStatus {
   message?: string;
   extractedCount?: number;
 }
+
+type ImportMode = 'structured' | 'ai';
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -175,7 +181,7 @@ const calculateDerivedFields = (data: any) => {
   
   const d = typeof result.tumorMaxDiameter === 'string' ? parseFloat(result.tumorMaxDiameter) : result.tumorMaxDiameter;
   if (d) {
-    result.tumorMaxDiameterGroup = d < 4 ? '<4' : '>=4';
+    result.tumorMaxDiameterGroup = d < 40 ? '<40mm' : '>=40mm';
   }
   
   if (result.figo2018) {
@@ -202,16 +208,69 @@ const calculateDerivedFields = (data: any) => {
 };
 
 const cleanPayload = (payload: any) => {
-  Object.keys(payload).forEach(key => {
-    if (Number.isNaN(payload[key]) || payload[key] === '' || payload[key] === undefined || payload[key] === null) {
-      delete payload[key];
+  const next = { ...payload };
+  Object.keys(next).forEach(key => {
+    if (Number.isNaN(next[key]) || next[key] === '' || next[key] === undefined || next[key] === null) {
+      delete next[key];
     }
   });
-  return payload;
+  return next;
+};
+
+const readStructuredWorkbookRows = async (file: File) => {
+  const arrayBuffer = await fileToArrayBuffer(file);
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+  const rows: Array<{ sheetName: string; rowNumber: number; data: Record<string, any> }> = [];
+
+  workbook.SheetNames.forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return;
+    const sheetRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: '',
+      raw: true,
+    });
+
+    sheetRows.forEach((rawRow, index) => {
+      rows.push({
+        sheetName,
+        rowNumber: index + 2,
+        data: rawRow,
+      });
+    });
+  });
+
+  return rows;
+};
+
+const saveStructuredPatient = async (processed: Record<string, any>, user: any) => {
+  const fallbackAuthorUid = user?.id || '';
+  const fallbackAuthorEmail = user?.email || '';
+  const fallbackAuthorName = user?.name || user?.email?.split('@')[0] || '未知用户';
+
+  const authorUid = processed.authorUid || fallbackAuthorUid;
+  const authorEmail = processed.authorEmail || fallbackAuthorEmail;
+  const authorName = processed.authorName || fallbackAuthorName;
+
+  const patientData = cleanPayload({
+    ...processed,
+    userId: processed.userId || authorUid || fallbackAuthorUid,
+    authorUid,
+    authorEmail,
+    authorName,
+  });
+
+  await pb.collection('patients').create({
+    name: patientData.name || '批量导入患者',
+    authorUid,
+    authorEmail,
+    authorName,
+    patientData,
+  });
 };
 
 export default function BatchImportModal({ isOpen, onClose, user }: BatchImportModalProps) {
   const [files, setFiles] = useState<FileStatus[]>([]);
+  const [importMode, setImportMode] = useState<ImportMode>('structured');
   const [isProcessing, setIsProcessing] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
   const [overallStatus, setOverallStatus] = useState('');
@@ -245,7 +304,7 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
 2. TNM分期：提取明确写出的 TNM 分期（如 pT2N1M0）。
 3. 组织学类型：务必仔细查看病案首页的【病理诊断】部分，明确提取“鳞状细胞癌”、“腺癌”等具体类型。
 4. 肿瘤分化程度：提取“高分化”、“中分化”、“低分化”等。
-5. 肿瘤最大径：提取明确最大径；若原文写“约4-5cm”，可取 5 cm；若仅描述“大”“较大”则留空。
+5. 肿瘤最大径：提取明确最大径，统一按 mm 填写；若原文写“约4-5cm”，换算后可取 50 mm；若仅描述“大”“较大”则留空。
 
 三、影像/肿瘤负荷
 1. 宫旁浸润：明确写“宫旁(+)”“宫旁受侵”“宫旁浸润”时填“有”；明确写“宫旁(-)”时填“无”；若左右侧一阳一阴，则按“有”填写。
@@ -310,34 +369,77 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
     if (files.length === 0) return;
     setIsProcessing(true);
     setOverallProgress(0);
-    setOverallStatus('准备开始批量导入...');
+    setOverallStatus(importMode === 'structured' ? '准备开始结构化导入...' : '准备开始批量导入...');
     let totalSaved = stats.saved;
 
-    // Create new controller for this batch
     batchAbortController.current = new AbortController();
     const signal = batchAbortController.current.signal;
 
     try {
       for (let i = 0; i < files.length; i++) {
-        if (signal.aborted) throw new Error("CANCELED");
+        if (signal.aborted) throw new Error('CANCELED');
         if (files[i].status !== 'pending' && files[i].status !== 'error') continue;
 
         setOverallStatus(`正在处理第 ${i + 1} 个文件 (共 ${files.length} 个)...`);
         setOverallProgress(Math.round((i / files.length) * 100));
 
-        setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'processing', message: '正在解析文档内容...' } : f));
+        setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'processing', message: importMode === 'structured' ? '正在读取表格...' : '正在解析文档内容...' } : f));
 
         try {
+          if (importMode === 'structured') {
+            const rows = await readStructuredWorkbookRows(files[i].file);
+            if (signal.aborted) throw new Error('CANCELED');
+
+            setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'processing', message: '正在校验并保存表格数据...' } : f));
+
+            let savedCount = 0;
+            let skippedCount = 0;
+            const rowErrors: string[] = [];
+
+            for (const row of rows) {
+              if (signal.aborted) throw new Error('CANCELED');
+
+              try {
+                const processed = mapStructuredSpreadsheetRow(row.data);
+                if (!hasMeaningfulStructuredData(processed)) {
+                  skippedCount++;
+                  continue;
+                }
+                if (!processed.name) processed.name = '批量导入患者';
+                await saveStructuredPatient(processed, user);
+                savedCount++;
+                totalSaved++;
+              } catch (rowError: any) {
+                rowErrors.push(`${row.sheetName} 第 ${row.rowNumber} 行：${rowError?.message || '导入失败'}`);
+              }
+            }
+
+            const messageParts = [`成功 ${savedCount} 条`];
+            if (skippedCount > 0) messageParts.push(`跳过 ${skippedCount} 条`);
+            if (rowErrors.length > 0) messageParts.push(`失败 ${rowErrors.length} 条`);
+
+            setFiles(prev => prev.map((f, idx) => idx === i ? {
+              ...f,
+              status: rowErrors.length > 0 && savedCount === 0 ? 'error' : 'success',
+              extractedCount: savedCount,
+              message: rowErrors.length > 0
+                ? `${messageParts.join('，')}；${rowErrors.slice(0, 3).join('；')}`
+                : messageParts.join('，'),
+            } : f));
+            setStats(s => ({ ...s, saved: totalSaved }));
+            continue;
+          }
+
           const deepseekApiKey = localStorage.getItem('deepseek_api_key');
           const geminiApiKey = localStorage.getItem('gemini_api_key');
           const contentPayload = await extractContent(files[i].file, !!deepseekApiKey);
 
-          if (signal.aborted) throw new Error("CANCELED");
+          if (signal.aborted) throw new Error('CANCELED');
           setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'processing', message: '正在请求 AI 分析...' } : f));
 
           let promptText = `你是一个专业的医疗数据提取助手。请从提供的病历资料（可能是单个患者的详细病历，也可能是包含多个患者的Excel/CSV表格）中提取结构化数据。
                 请自动过滤掉没有用的杂乱信息，只提取符合要求的有用信息。对于数值类型只提取数字。`;
-          
+
           if (aiInstruction.trim()) {
             promptText += `\n\n【用户附加指令】：${aiInstruction.trim()}`;
           }
@@ -352,37 +454,36 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
               geminiApiKey,
               isBatch: true
             }),
-            signal // Pass the signal to fetch
+            signal
           });
 
           if (!response.ok) {
             const errData = await response.json();
-            throw new Error(errData.error || "提取失败");
+            throw new Error(errData.error || '提取失败');
           }
 
-          if (signal.aborted) throw new Error("CANCELED");
+          if (signal.aborted) throw new Error('CANCELED');
           setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'processing', message: '正在保存数据...' } : f));
 
           const extractedArray = await response.json();
-          if (!Array.isArray(extractedArray)) throw new Error("AI 未返回有效的数组格式");
+          if (!Array.isArray(extractedArray)) throw new Error('AI 未返回有效的数组格式');
 
           let savedCount = 0;
           for (const item of extractedArray) {
-            if (signal.aborted) throw new Error("CANCELED");
-            // Skip completely empty objects
+            if (signal.aborted) throw new Error('CANCELED');
             if (Object.keys(item).length === 0) continue;
 
             let processed = calculateDerivedFields(item);
-            if (!processed.name) processed.name = `批量导入患者`;
-            
-            const authorUid   = user?.id    || '';
-            const authorEmail = user?.email  || '';
-            const authorName  = user?.name   || user?.email?.split('@')[0] || '未知用户';
+            if (!processed.name) processed.name = '批量导入患者';
+
+            const authorUid = user?.id || '';
+            const authorEmail = user?.email || '';
+            const authorName = user?.name || user?.email?.split('@')[0] || '未知用户';
 
             processed = cleanPayload({ ...processed, authorUid, authorEmail, authorName, userId: authorUid });
 
             await pb.collection('patients').create({
-              name:        processed.name || '批量导入患者',
+              name: processed.name || '批量导入患者',
               authorUid,
               authorEmail,
               authorName,
@@ -394,21 +495,20 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
 
           setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'success', extractedCount: savedCount, message: `成功导入 ${savedCount} 条记录` } : f));
           setStats(s => ({ ...s, saved: totalSaved }));
-
         } catch (error: any) {
-          if (error.name === 'AbortError' || error.message === "CANCELED") {
-            setFiles(prev => prev.map((f, idx) => idx === i && f.status === 'processing' ? { ...f, status: 'pending', message: "已取消" } : f));
-            throw error; // Re-throw to catch in outer block
+          if (error.name === 'AbortError' || error.message === 'CANCELED') {
+            setFiles(prev => prev.map((f, idx) => idx === i && f.status === 'processing' ? { ...f, status: 'pending', message: '已取消' } : f));
+            throw error;
           }
-          console.error("Batch processing error:", error);
-          setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'error', message: error.message || "解析失败" } : f));
+          console.error('Batch processing error:', error);
+          setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'error', message: error.message || '解析失败' } : f));
         }
       }
 
       setOverallProgress(100);
-      setOverallStatus(`批量导入完成！共处理 ${files.length} 个文件，成功保存 ${totalSaved} 条记录。`);
+      setOverallStatus(`${importMode === 'structured' ? '结构化导入' : '批量导入'}完成！共处理 ${files.length} 个文件，成功保存 ${totalSaved} 条记录。`);
     } catch (error: any) {
-      if (error.name === 'AbortError' || error.message === "CANCELED") {
+      if (error.name === 'AbortError' || error.message === 'CANCELED') {
         setOverallStatus('批量导入已取消');
       } else {
         setOverallStatus('批量导入过程中发生错误');
@@ -459,8 +559,12 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">批量 AI 导入</h2>
-              <p className="text-xs text-gray-500 mt-0.5">支持上传多个 Excel / Word / PDF 文件，AI 将自动清洗并提取有效数据</p>
+              <h2 className="text-lg font-bold text-gray-900">批量导入</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {importMode === 'structured'
+                  ? '结构化 Excel 直导：一行 Excel = 一条患者记录，不走 AI'
+                  : 'AI 文档导入：支持上传多个 Excel / Word / PDF 文件，AI 自动提取有效数据'}
+              </p>
             </div>
           </div>
           <button onClick={handleClose} disabled={isProcessing} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50">
@@ -496,18 +600,46 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
             </div>
           )}
 
-          {/* Upload Zone */}
-          <div className="relative">
-            <input 
-              type="file" 
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => setImportMode('structured')}
+              className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                importMode === 'structured'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="text-sm font-semibold">结构化 Excel 直导</div>
+              <div className="mt-1 text-xs text-gray-500">适合历史表整表回灌，不需要 AI Key</div>
+            </button>
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => setImportMode('ai')}
+              className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                importMode === 'ai'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="text-sm font-semibold">AI 文档导入</div>
+              <div className="mt-1 text-xs text-gray-500">适合病历、PDF、Word 等非结构化资料</div>
+            </button>
+          </div>
+
+          <div>
+            <input
+              type="file"
               multiple
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.dcm,.dicom,.nii,.nii.gz" 
-              className="hidden" 
+              accept={importMode === 'structured' ? '.xls,.xlsx' : '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.dcm,.dicom,.nii,.nii.gz'}
+              className="hidden"
               ref={fileInputRef}
               onChange={handleFileSelect}
               disabled={isProcessing}
             />
-            <button 
+            <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
               className="w-full flex flex-col items-center justify-center py-8 border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
@@ -516,20 +648,26 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
                 <Upload className="w-6 h-6 text-blue-500" />
               </div>
               <span className="text-sm font-medium text-blue-800">点击选择多个文件</span>
-              <span className="text-xs text-blue-500/80 mt-1">支持批量选择 Excel, Word, PDF, DICOM, NIfTI 等格式</span>
+              <span className="text-xs text-blue-500/80 mt-1">
+                {importMode === 'structured'
+                  ? '结构化模式建议上传 .xlsx / .xls 历史表格'
+                  : '支持批量选择 Excel, Word, PDF, DICOM, NIfTI 等格式'}
+              </span>
             </button>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">提示词</label>
-            <textarea
-              value={aiInstruction}
-              onChange={(e) => setAiInstruction(e.target.value)}
-              placeholder="在此输入 AI 提取指令..."
-              className="w-full h-48 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-y"
-              disabled={isProcessing}
-            />
-          </div>
+          {importMode === 'ai' && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">提示词</label>
+              <textarea
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+                placeholder="在此输入 AI 提取指令..."
+                className="w-full h-48 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-y"
+                disabled={isProcessing}
+              />
+            </div>
+          )}
 
           {/* Stats */}
           {stats.saved > 0 && (
@@ -601,13 +739,13 @@ export default function BatchImportModal({ isOpen, onClose, user }: BatchImportM
           >
             关闭
           </button>
-          <button 
+          <button
             onClick={handleStart}
             disabled={isProcessing || files.length === 0 || files.every(f => f.status === 'success')}
             className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:bg-blue-400 transition-colors shadow-sm"
           >
             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {isProcessing ? '正在批量解析...' : '开始批量导入'}
+            {isProcessing ? (importMode === 'structured' ? '正在结构化导入...' : '正在批量解析...') : (importMode === 'structured' ? '开始结构化导入' : '开始批量导入')}
           </button>
         </div>
 

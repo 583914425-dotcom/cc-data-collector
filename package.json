@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "rm -rf dist && NODE_ENV=production npx vite build --outDir dist/public && npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:vite --external:express",
+    "build": "rm -rf dist && npx vite build --outDir dist/public && npx esbuild server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:vite --external:express",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",

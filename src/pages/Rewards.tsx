@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { pb, toPatient } from '../lib/pb';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Gift, Plus, ExternalLink, Loader2, Trash2, QrCode, X } from 'lucide-react';
@@ -137,7 +137,7 @@ export default function Rewards({ user, userData }: { user: any; userData?: any 
       reader.readAsDataURL(file);
     });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {

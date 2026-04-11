@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { pb, toPatient } from '../lib/pb';
+import { PATIENT_EXPORT_COLUMNS } from '../lib/patientSpreadsheet';
 import { Patient } from '../types';
 import { Link } from 'react-router-dom';
-import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil, Trophy } from 'lucide-react';
+import { Plus, Download, LogOut, Trash2, Edit, Database, Settings, X, Users, AlertCircle, MessageSquare, Pencil, Upload } from 'lucide-react';
 import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
+import BatchImportModal from '../components/BatchImportModal';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -23,8 +25,9 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const [displayName, setDisplayName] = useState(user?.name || '');
   const [avatarPreview, setAvatarPreview] = useState<string>(user?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showBatchImport, setShowBatchImport] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
-  const [milestoneAlert, setMilestoneAlert] = useState<{ count: number; reward: string } | null>(null);
+  const [milestoneAlert, setMilestoneAlert] = useState<{ count: number } | null>(null);
 
   const MILESTONES: { count: number; reward: string }[] = [
     { count: 3, reward: '🧋 喜茶' },
@@ -122,7 +125,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
     });
   };
 
-  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -220,83 +223,9 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
   const handleExport = () => {
     if (patients.length === 0) return;
 
-    const exportColumns = [
-      { key: 'customPatientId', header: '患者ID (自定义)' },
-      { key: 'name', header: '姓名' },
-      { key: 'phone', header: '电话号码' },
-      { key: 'description', header: '影像描述' },
-      { key: 'diagnosis', header: '影像诊断' },
-      { key: 'age', header: '年龄(岁)' },
-      { key: 'ageGroup', header: '年龄分组' },
-      { key: 'gender', header: '性别' },
-      { key: 'height', header: '身高(cm)' },
-      { key: 'weight', header: '体重(kg)' },
-      { key: 'bmi', header: 'BMI' },
-      { key: 'bmiGroup', header: 'BMI分组' },
-      { key: 'menstrualStatus', header: '月经状态' },
-      { key: 'abortionHistory', header: '流产史' },
-      { key: 'hpvInfection', header: 'HPV感染' },
-      { key: 'systolicBP', header: '收缩压(mmHg)' },
-      { key: 'diastolicBP', header: '舒张压(mmHg)' },
-      { key: 'hypertensionGrade', header: '高血压分级' },
-      { key: 'figo2018', header: 'FIGO2018分期' },
-      { key: 'figoSummary', header: 'FIGO分期汇总' },
-      { key: 'tnmStaging', header: 'TNM分期' },
-      { key: 'histologyType', header: '组织学类型' },
-      { key: 'differentiation', header: '分化程度' },
-      { key: 'tumorMaxDiameter', header: '肿瘤最大径(cm)' },
-      { key: 'tumorMaxDiameterGroup', header: '肿瘤最大径分组' },
-      { key: 'parametrialInvasion', header: '宫旁浸润' },
-      { key: 'corpusInvasion', header: '宫体浸润' },
-      { key: 'vaginalInvasion', header: '阴道受侵范围' },
-      { key: 'bladderInvasion', header: '膀胱受侵' },
-      { key: 'rectalInvasion', header: '直肠受侵' },
-      { key: 'pelvicLN', header: '盆腔淋巴结转移' },
-      { key: 'rbcCount', header: '红细胞计数' },
-      { key: 'wbcCount', header: '白细胞计数' },
-      { key: 'plateletCount', header: '血小板计数' },
-      { key: 'lymphocyteCount', header: '淋巴细胞计数' },
-      { key: 'neutrophilCount', header: '中性粒细胞计数' },
-      { key: 'monocyteCount', header: '单核细胞计数' },
-      { key: 'preTreatmentHb', header: '治疗前血红蛋白' },
-      { key: 'hbGroup', header: '血红蛋白分组' },
-      { key: 'scca', header: '鳞癌抗原SCCA' },
-      { key: 'sccaGroup', header: 'SCCA分组' },
-      { key: 'nlr', header: 'NLR' },
-      { key: 'plr', header: 'PLR' },
-      { key: 'lmr', header: 'LMR' },
-      { key: 'rtTechnology', header: '放疗技术' },
-      { key: 'ebrtDose', header: '外照射总剂量EBRT' },
-      { key: 'ebrtDoseGroup', header: '外照射总剂量分组' },
-      { key: 'icbtDose', header: '内照射总剂量ICBT' },
-      { key: 'icbtFractions', header: '内照射次数' },
-      { key: 'eqd2', header: '等效生物剂量EQD2' },
-      { key: 'eqd4', header: '等效生物剂量EQD4' },
-      { key: 'ccrtDuration', header: '同步放化疗疗程(天)' },
-      { key: 'platinumRegimen', header: '含铂化疗方案' },
-      { key: 'platinumDrug', header: '含铂药物' },
-      { key: 'cisplatinWeekly', header: '同步顺铂周疗' },
-      { key: 'chemoCycles', header: '同步化疗次数' },
-      { key: 'totalChemoDose', header: '化疗总剂量' },
-      { key: 'treatmentResponse', header: '放化疗疗效' },
-      { key: 'recurrence', header: '复发' },
-      { key: 'recurrenceSite', header: '复发部位' },
-      { key: 'pfsMonths', header: '无进展生存期(月)' },
-      { key: 'osMonths', header: '总生存期(月)' },
-      { key: 'survivalStatus', header: '生存状态' },
-      { key: 'followUpDate', header: '随访时间(YYYY-MM-DD)' },
-      { key: 'imagingFilesCount', header: '影像文件数量' },
-      { key: 'createdAt', header: '录入时间' },
-      { key: 'updatedAt', header: '最后更新时间' },
-      { key: 'authorName', header: '录入者姓名' },
-      { key: 'authorEmail', header: '录入者邮箱' },
-      { key: 'authorUid', header: '录入者UID' },
-      { key: 'id', header: '系统记录ID' }
-    ];
-
     const exportData = patients.map(patient => {
       const row: any = {};
-      exportColumns.forEach(col => {
+      PATIENT_EXPORT_COLUMNS.forEach(col => {
         let value = (patient as any)[col.key];
         if (col.key === 'imagingFilesCount') {
           value = patient.imagingFiles?.length || 0;
@@ -359,8 +288,7 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">恭喜！</h2>
-            <p className="text-gray-600 mb-1">您已录入 <span className="font-bold text-blue-600">{milestoneAlert.count}</span> 例患者！</p>
-            <p className="text-gray-700 font-medium mb-6">解锁奖励：{milestoneAlert.reward}</p>
+            <p className="text-gray-600 mb-6">您已录入 <span className="font-bold text-blue-600">{milestoneAlert.count}</span> 例患者！</p>
             <button
               onClick={() => setMilestoneAlert(null)}
               className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
@@ -452,6 +380,13 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
             </p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowBatchImport(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              批量导入
+            </button>
             <button
               onClick={handleExport}
               disabled={patients.length === 0}
@@ -667,6 +602,12 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
         isOpen={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setPatientToDelete(null); }}
         onConfirm={confirmDelete}
+      />
+
+      <BatchImportModal
+        isOpen={showBatchImport}
+        onClose={() => setShowBatchImport(false)}
+        user={user}
       />
     </div>
   );

@@ -325,7 +325,7 @@ export default function Chat({ user, onEnter, onLeave }: { user: any, onEnter?: 
     }
   };
 
-  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  const totalUnread = Object.values(unreadCounts as Record<string, number>).reduce((a, b) => a + b, 0);
 
   useEffect(() => {
     const original = document.title;
