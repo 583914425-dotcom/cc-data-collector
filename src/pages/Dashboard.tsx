@@ -379,10 +379,6 @@ export default function Dashboard({ user, userData, chatUnread = 0 }: { user: an
               <h1 className="text-xl font-bold text-gray-900">宫颈癌数据库采集系统</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/rewards" className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors">
-                <Trophy className="w-4 h-4" />
-                奖励
-              </Link>
               <Link to="/chat" className="relative flex items-center gap-1 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                 <MessageSquare className="w-4 h-4" />
                 聊天

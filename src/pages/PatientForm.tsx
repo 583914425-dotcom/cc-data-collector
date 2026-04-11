@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { read, utils } from 'xlsx';
 import { 
   ArrowLeft, Save, Loader2, ChevronDown, Mic, MicOff, RotateCcw
@@ -8,6 +8,9 @@ import {
 import { pb } from '../lib/pb';
 import { GoogleGenAI } from '@google/genai';
 import { Patient } from '../types';
+
+const PATIENT_ID_PREFIX_OPTIONS = ['2019_', '2020_', '2021_', '2022_', '2023_', '2024_', '2025_'];
+const DEFAULT_PATIENT_ID_PREFIX = PATIENT_ID_PREFIX_OPTIONS[PATIENT_ID_PREFIX_OPTIONS.length - 1];
 
 const SECTION_A_FIELDS = [
   { name: 'customPatientId', label: '患者ID' },
@@ -29,8 +32,12 @@ const SECTION_A_FIELDS = [
 ];
 
 const SECTION_B_FIELDS = [
+  { name: 'tnmT', label: 'T分期', options: ['T1','T2','T3','T4'] },
+  { name: 'tnmN', label: 'N分期', options: ['N0','N1','N2','N3'] },
+  { name: 'tnmM', label: 'M分期', options: ['M0','M1'] },
+
   { name: 'figo2018', label: 'FIGO 2018分期', options: ['IB3', 'IIA1', 'IIA2', 'IIB', 'IIIA', 'IIIB', 'IIIC1', 'IIIC2', 'IVA'] },
-  { name: 'tnmStaging', label: 'TNM分期' },
+  
   { name: 'histologyType', label: '组织学类型', options: ['鳞状细胞癌', '腺癌', '腺鳞癌', '其他'] },
   { name: 'differentiation', label: '分化程度', options: ['高分化', '中分化', '低分化'] },
   { name: 'tumorMaxDiameter', label: '肿瘤最大径 (cm)' },
@@ -166,6 +173,89 @@ function isSectionFilled(fields: any[], values: any) {
   const required = fields.filter(f => !f.readOnly && !f.optional && f.label !== '备注');
   return required.length > 0 && required.every(f => String(values?.[f.name] ?? '').trim() !== '');
 }
+
+function parseCustomPatientId(value?: string) {
+  const normalizedValue = String(value ?? '').trim();
+  if (!normalizedValue) {
+    return { prefix: DEFAULT_PATIENT_ID_PREFIX, suffix: '' };
+  }
+
+  const matchedPrefix = PATIENT_ID_PREFIX_OPTIONS.find(prefix => normalizedValue.startsWith(prefix));
+  if (matchedPrefix) {
+    return {
+      prefix: matchedPrefix,
+      suffix: normalizedValue.slice(matchedPrefix.length),
+    };
+  }
+
+  return { prefix: DEFAULT_PATIENT_ID_PREFIX, suffix: normalizedValue };
+}
+
+const PatientIdInput = ({ label, name, currentValue, register, setValue, toggleRecording, processingField, recordingField }: any) => {
+  const parsedValue = parseCustomPatientId(currentValue);
+  const [selectedPrefix, setSelectedPrefix] = useState(parsedValue.prefix);
+
+  useEffect(() => {
+    setSelectedPrefix(parsedValue.prefix);
+  }, [parsedValue.prefix, currentValue]);
+
+  const updatePatientId = (nextPrefix: string, nextSuffix: string) => {
+    setSelectedPrefix(nextPrefix);
+    const normalizedSuffix = nextSuffix.replace(/\D/g, '');
+    setValue(name, normalizedSuffix ? `${nextPrefix}${normalizedSuffix}` : '', { shouldValidate: true, shouldDirty: true });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <input type="hidden" {...register(name)} />
+      <div className="flex gap-2">
+        <select
+          value={selectedPrefix}
+          onChange={(e) => updatePatientId(e.target.value, parsedValue.suffix)}
+          className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-white"
+        >
+          {PATIENT_ID_PREFIX_OPTIONS.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+        <div className="relative flex-1">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={parsedValue.suffix}
+            onChange={(e) => updatePatientId(selectedPrefix, e.target.value)}
+            placeholder="请输入编号"
+            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-white"
+          />
+          <button
+            type="button"
+            onClick={() => toggleRecording(name, label)}
+            disabled={processingField === name}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${
+              recordingField === name
+                ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse'
+                : processingField === name
+                ? 'bg-blue-50 text-blue-600'
+                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+            }`}
+            title={recordingField === name ? "停止录音" : processingField === name ? "正在处理..." : "语音输入"}
+          >
+            {processingField === name ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : recordingField === name ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FormSection = ({ title, children, id, fields, clearSection, toggleSectionRecording, recordingSection, processingSection, handleFileUpload, formValues, suppressSound }: { title: string, children: React.ReactNode, id: string, fields: any[], clearSection: (fields: any[]) => void, toggleSectionRecording: (id: string, title: string, fields: any[]) => void, recordingSection: string | null, processingSection: string | null, handleFileUpload: (file: File, patientNameOrId: string) => Promise<void>, formValues?: any, suppressSound?: boolean }) => {
   const editableFields = fields.filter(f => !f.readOnly && !f.optional && f.label !== '备注');
@@ -443,10 +533,12 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
 
   const { register, handleSubmit, setValue, watch, reset, getValues, control, formState: { errors } } = useForm<Patient>({
     defaultValues: {
+      customPatientId: '',
+      tnmM: 'M0',
       gender: '女',
-      menstrualStatus: '',
-      abortionHistory: '',
-      hpvInfection: '',
+      menstrualStatus: '未绝经',
+      abortionHistory: '否',
+      hpvInfection: '阴性',
       parametrialInvasion: '无',
       corpusInvasion: '无',
       vaginalInvasion: '无',
@@ -510,6 +602,7 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
   const progressionDate = watch('progressionDate');
   const deathDate = watch('deathDate');
   const followUpDate = watch('followUpDate');
+  const customPatientId = watch('customPatientId');
 
   // Auto-calculation logic
   useEffect(() => {
@@ -858,7 +951,16 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
         'pfsMonths', 'osMonths', 'followUpTime', 'icbtFractions'
       ];
 
-      const finalData: any = { ...sanitizedData };
+      
+const finalData: any = {
+        ...sanitizedData,
+        tnmStaging: [
+          sanitizedData.tnmT || '',
+          sanitizedData.tnmN || '',
+          sanitizedData.tnmM || 'M0'
+        ].join(''),
+        followUpDate: new Date().toISOString().slice(0, 10)
+      };
       
       // Remove empty strings and convert numeric fields
       Object.keys(finalData).forEach(key => {
@@ -917,14 +1019,16 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
       name: '',
       age: undefined,
       gender: '女',
-      menstrualStatus: '',
-      abortionHistory: '',
-      hpvInfection: '',
+      menstrualStatus: '未绝经',
+      abortionHistory: '否',
+      hpvInfection: '阴性',
       phone: '',
       height: undefined,
       weight: undefined,
       bloodPressure: '',
-      tnmStaging: '',
+      tnmT: '',
+      tnmN: '',
+      tnmM: 'M0',
       histologyType: '',
       differentiation: '',
       tumorMaxDiameter: undefined,
@@ -1026,8 +1130,22 @@ ${info.fields.map(f => `- ${f.label} (字段名: ${f.name})${f.options ? `，可
               </button>
             </div>
             <FormSection title="A. 基本信息" id="section-a" fields={SECTION_A_FIELDS} clearSection={clearSection} toggleSectionRecording={toggleSectionRecording} recordingSection={recordingSection} processingSection={processingSection} handleFileUpload={handleFileUpload} formValues={allFormValues} suppressSound={allSectionsComplete}>
-              {SECTION_A_FIELDS.map(field => (
-                <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
+          {SECTION_A_FIELDS.map(field => (
+                field.name === 'customPatientId' ? (
+                  <PatientIdInput
+                    key={field.name}
+                    label={field.label}
+                    name={field.name}
+                    currentValue={customPatientId}
+                    register={register}
+                    setValue={setValue}
+                    toggleRecording={toggleRecording}
+                    processingField={processingField}
+                    recordingField={recordingField}
+                  />
+                ) : (
+                  <FormInput key={field.name} {...field} register={register} toggleRecording={toggleRecording} processingField={processingField} recordingField={recordingField} />
+                )
               ))}
             </FormSection>
 

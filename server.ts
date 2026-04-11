@@ -571,19 +571,20 @@ async function startServer() {
     })
   );
 
-  // ── Spawn PocketBase in production ─────────────────────────────────────────
-  if (process.env.NODE_ENV === "production") {
-    const pbBinary = path.resolve('./bin/pocketbase');
-    if (fs.existsSync(pbBinary)) {
-      const pb = spawn(pbBinary, ['serve', '--http=0.0.0.0:8090', '--dir=./pb_data'], {
-        stdio: 'inherit',
-        detached: false,
-      });
-      pb.on('error', (err) => console.error('PocketBase spawn error:', err));
-      process.on('exit', () => pb.kill());
-    } else {
-      console.warn('PocketBase binary not found at', pbBinary);
-    }
+  // ── Spawn PocketBase when a matching local binary exists ───────────────────
+  const pbBinary = process.platform === "win32"
+    ? path.resolve('./bin/pocketbase.exe')
+    : path.resolve('./bin/pocketbase');
+
+  if (fs.existsSync(pbBinary)) {
+    const pb = spawn(pbBinary, ['serve', '--http=0.0.0.0:8090', '--dir=./pb_data'], {
+      stdio: 'inherit',
+      detached: false,
+    });
+    pb.on('error', (err) => console.error('PocketBase spawn error:', err));
+    process.on('exit', () => pb.kill());
+  } else {
+    console.warn('PocketBase binary not found for current platform at', pbBinary);
   }
 
   // Vite middleware for development or serve static files for production
