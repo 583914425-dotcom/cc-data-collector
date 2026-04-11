@@ -4,3 +4,6 @@ coverage/
 *.log
 .env*
 !.env.example
+dist/
+bin/pocketbase_*.zip
+bin/pocketbase_win/
